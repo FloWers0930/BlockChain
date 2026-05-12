@@ -1,0 +1,17 @@
+{
+  "name": "statio-nexus",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:local": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:docker": "concurrently \"npm run docker:up\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "docker:up": "docker-compose up --build -d",
+    "stop": "docker-compose down",
+    "restart": "npm run stop && npm run dev:docker",
+    "logs:backend": "docker-compose logs -f backend",
+    "logs:redis": "docker-compose logs -f redis"
+  }
+}
