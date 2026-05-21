@@ -1,6 +1,6 @@
 // src/components/dashboard/DashboardLayout.jsx
 import { useState, useCallback } from "react";
-import { useAuth } from "../../../../app/providers/AuthProvider";
+import { useAuth } from "@providers/AuthProvider";
 import NotificationBell from "../ui/NotificationBell";
 
 export default function DashboardLayout({ children, menuItems, title, role }) {
@@ -216,4 +216,6 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
     </div>
   );
 }
+
+
 

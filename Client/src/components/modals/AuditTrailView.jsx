@@ -1,7 +1,7 @@
 // src/features/dashboard/shared/components /AuditTrailView.jsx
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
-import api from "../../shared/api/axios";
-import { useSocket } from "../../../../app/providers/SocketProvider";
+import api from "@api/axios";
+import { useSocket } from "@providers/SocketProvider";
 import { RefreshCw } from "lucide-react";
 
 const getActionIcon = (action) => {
@@ -357,3 +357,6 @@ export default function AuditTrailView() {
     </div>
   );
 }
+
+
+

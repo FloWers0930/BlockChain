@@ -10,8 +10,8 @@ import {
   Settings,
 } from "lucide-react";
 
-import DashboardLayout from "../shared/components/DashboardLayout";
-import DashboardSkeleton from "../shared/components/DashboardSkeleton";
+import DashboardLayout from "@components/layout/DashboardLayout";
+import DashboardSkeleton from "@components/ui/DashboardSkeleton";
 
 // Lazy loaded views
 const OwnerDashboardView = lazy(
@@ -26,12 +26,12 @@ const LocationsView = lazy(
 const OwnerRevenueView = lazy(
   () => import("./RevenueView"),
 );
-const StaffView = lazy(() => import("./views/StaffView"));
+const StaffView = lazy(() => import("./StaffView"));
 const OwnerSettingsView = lazy(
-  () => import("./views/SettingsView"),
+  () => import("./SettingsView"),
 );
 const OwnerAuditView = lazy(
-  () => import("../shared/components/AuditTrailView"),
+  () => import("@components/modals/AuditTrailView"),
 ); // ← Fixed
 
 const OWNER_VIEWS = {
@@ -78,4 +78,5 @@ export default function OwnerDashboard() {
     </DashboardLayout>
   );
 }
+
 

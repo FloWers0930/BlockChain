@@ -1,7 +1,7 @@
 // src/components/dashboard/admin/SettingsView.jsx
 import { useState, useEffect, useCallback } from "react";
-import api from "../../../../shared/api/axios";
-import { useSocket } from "../../../../app/providers/SocketProvider";
+import api from "@api/axios";
+import { useSocket } from "@providers/SocketProvider";
 
 export default function SettingsView() {
   const { socket } = useSocket();
@@ -335,4 +335,6 @@ export default function SettingsView() {
     </div>
   );
 }
+
+
 

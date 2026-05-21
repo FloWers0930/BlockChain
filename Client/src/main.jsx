@@ -6,7 +6,7 @@ import "@fortawesome/fontawesome-free/css/all.min.css";
 import App from "./router";
 import { AuthProvider } from "./providers/AuthProvider";
 import { SocketProvider } from "./providers/SocketProvider";
-import "../shared/styles/index.css";
+import "./styles/index.css";
 
 const LoadingScreen = () => (
   <div className="flex h-screen w-screen items-center justify-center bg-gradient-to-br from-slate-50 to-violet-50">

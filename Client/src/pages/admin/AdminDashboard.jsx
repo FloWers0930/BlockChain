@@ -1,4 +1,4 @@
-// src/features/dashboard/admin/pages/AdminDashboard.jsx
+// src/pages/admin/AdminDashboard.jsx
 import { useState, lazy, Suspense } from "react";
 import {
   LayoutDashboard,
@@ -8,25 +8,15 @@ import {
   ShieldCheck,
   Settings,
 } from "lucide-react";
-import DashboardLayout from "../../shared/components/DashboardLayout";
-import DashboardSkeleton from "../../shared/components/DashboardSkeleton";
+import DashboardLayout from "@components/layout/DashboardLayout";
+import DashboardSkeleton from "@components/ui/DashboardSkeleton";
 
-const DashboardView = lazy(
-  () => import("./views/DashboardView"),
-);
-const RevenueView = lazy(
-  () => import("./views/BookingView"),
-);
-const UsersView = lazy(() => import("./views/UsersView"));
-const SupportView = lazy(
-  () => import("./views/SupportView"),
-);
-const AuditTrailView = lazy(
-  () => import("../../shared/components/AuditTrailView"),
-);
-const SettingsView = lazy(
-  () => import("./views/SettingsView"),
-);
+const DashboardView = lazy(() => import("./DashboardView"));
+const RevenueView = lazy(() => import("./BookingView"));
+const UsersView = lazy(() => import("./UsersView"));
+const SupportView = lazy(() => import("./SupportView"));
+const AuditTrailView = lazy(() => import("@components/modals/AuditTrailView"));
+const SettingsView = lazy(() => import("./SettingsView"));
 
 const ADMIN_VIEWS = {
   dashboard: DashboardView,
@@ -48,7 +38,6 @@ const ADMIN_MENU = [
 
 export default function AdminDashboard() {
   const [activeView, setActiveView] = useState("dashboard");
-
   const ActiveView = ADMIN_VIEWS[activeView] ?? ADMIN_VIEWS.dashboard;
 
   const menuItems = ADMIN_MENU.map((item) => ({
@@ -69,4 +58,3 @@ export default function AdminDashboard() {
     </DashboardLayout>
   );
 }
-

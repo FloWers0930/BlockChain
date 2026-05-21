@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect, useRef } from "react";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
-import { useAnimatedCounter } from "../../../shared/hooks/useAnimatedCounter";
+import Navbar from "@components/layout/Navbar";
+import Footer from "@components/layout/Footer";
+import { useAnimatedCounter } from "@hooks/useAnimatedCounter";
 
 export default function LandingPage() {
   const { count: users } = useAnimatedCounter(24800, 1600);
@@ -430,4 +430,7 @@ export default function LandingPage() {
     </>
   );
 }
+
+
+
 

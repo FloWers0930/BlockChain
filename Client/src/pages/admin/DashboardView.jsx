@@ -1,9 +1,9 @@
 // src/components/dashboard/admin/DashboardView.jsx
 import { useEffect, useState } from "react";
 import { PhilippinePeso, CalendarCheck, Car, PieChart } from "lucide-react";
-import MetricCard from "../../shared/components/MetricCard";
-import DashboardSkeleton from "../../shared/components/DashboardSkeleton";
-import api from "../../../../shared/api/axios";
+import MetricCard from "@components/ui/MetricCard";
+import DashboardSkeleton from "@components/ui/DashboardSkeleton";
+import api from "@api/axios";
 
 export default function AdminDashboardView() {
   const [stats, setStats] = useState({
@@ -184,4 +184,7 @@ export default function AdminDashboardView() {
     </div>
   );
 }
+
+
+
 

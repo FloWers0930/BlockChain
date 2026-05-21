@@ -1,7 +1,7 @@
 // src/components/dashboard/admin/BookingsView.jsx
 import { useState, useEffect, useCallback } from "react";
-import api from "../../../../shared/api/axios";
-import { useSocket } from "../../../../app/providers/SocketProvider";
+import api from "@api/axios";
+import { useSocket } from "@providers/SocketProvider";
 
 export default function BookingsView() {
   const { socket } = useSocket();
@@ -147,4 +147,6 @@ export default function BookingsView() {
     </div>
   );
 }
+
+
 

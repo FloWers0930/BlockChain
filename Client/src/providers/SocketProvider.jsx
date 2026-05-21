@@ -9,7 +9,7 @@ import {
 } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "./AuthProvider.jsx";
-import { getToken } from "../../shared/api/token.js";
+import { getToken } from "../api/token.js";
 
 const SocketContext = createContext(null);
 
@@ -115,4 +115,3 @@ export const useSocket = () => {
   }
   return context;
 };
-

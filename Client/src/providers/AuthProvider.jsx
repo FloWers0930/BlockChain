@@ -11,8 +11,8 @@ import {
   login as apiLogin,
   logout as apiLogout,
   getMe as apiGetMe,
-  isAuthenticated as isTokenValid, // ← checks JWT expiry, not just presence
-} from "../../features/auth/api/authApi.js";
+  isAuthenticated as isTokenValid,
+} from "../api/authApi.js";
 
 const AuthContext = createContext(null);
 
@@ -157,4 +157,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

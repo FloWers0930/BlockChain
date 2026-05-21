@@ -1,7 +1,7 @@
 // src/components/dashboard/owner/LocationsView.jsx
 import { useEffect, useState, useCallback, useMemo, memo } from "react";
-import api from "../../../shared/api/axios";
-import { useSocket } from "../../../../app/providers/SocketProvider";
+import api from "@api/axios";
+import { useSocket } from "@providers/SocketProvider";
 import { RefreshCw, Plus, MapPin, Pencil, Trash2 } from "lucide-react";
 
 export default function LocationsView() {
@@ -1009,4 +1009,7 @@ export default function LocationsView() {
     </div>
   );
 }
+
+
+
 

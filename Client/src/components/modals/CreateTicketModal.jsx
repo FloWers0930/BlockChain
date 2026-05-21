@@ -1,6 +1,6 @@
 // src/components/dashboard/customer/CreateTicketModal.jsx
 import { useState } from "react";
-import api from "../../shared/api/axios";
+import api from "@api/axios";
 
 export default function CreateTicketModal({
   isOpen,
@@ -152,4 +152,6 @@ export default function CreateTicketModal({
     </div>
   );
 }
+
+
 

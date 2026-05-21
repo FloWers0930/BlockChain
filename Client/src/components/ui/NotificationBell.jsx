@@ -1,7 +1,7 @@
 // src/components/dashboard/NotificationBell.jsx
 import { useState, useEffect, useRef } from "react";
 import { Bell, BellOff } from "lucide-react";
-import { useSocket } from "../../../../app/providers/SocketProvider";
+import { useSocket } from "@providers/SocketProvider";
 
 export default function NotificationBell() {
   const { socket } = useSocket();
@@ -144,4 +144,6 @@ export default function NotificationBell() {
     </div>
   );
 }
+
+
 

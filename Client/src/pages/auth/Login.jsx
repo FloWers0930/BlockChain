@@ -1,7 +1,7 @@
 // src/pages/Login.jsx
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../../../app/providers/AuthProvider";
+import { useAuth } from "@providers/AuthProvider";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 
 export default function Login() {
@@ -237,4 +237,6 @@ export default function Login() {
     </div>
   );
 }
+
+
 

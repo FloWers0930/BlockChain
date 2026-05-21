@@ -1,8 +1,8 @@
 // src/components/dashboard/owner/SettingsView.jsx
 import { useState, useEffect, useCallback } from "react";
-import api from "../../../shared/api/axios";
-import { useSocket } from "../../../../app/providers/SocketProvider";
-import { useAuth } from "../../../../app/providers/AuthProvider";
+import api from "@api/axios";
+import { useSocket } from "@providers/SocketProvider";
+import { useAuth } from "@providers/AuthProvider";
 import zxcvbn from "zxcvbn";
 
 export default function SettingsView() {
@@ -642,4 +642,7 @@ export default function SettingsView() {
     </div>
   );
 }
+
+
+
 

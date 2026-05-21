@@ -1,5 +1,5 @@
 // src/app/router/guards/RequireAuth.jsx
-import { useAuth } from "../../app/providers/AuthProvider";
+import { useAuth } from "@providers/AuthProvider";
 import { Navigate, useLocation } from "react-router-dom";
 
 export default function Authenticate({ children, allowedRoles = [] }) {
@@ -21,4 +21,6 @@ export default function Authenticate({ children, allowedRoles = [] }) {
 
   return children;
 }
+
+
 

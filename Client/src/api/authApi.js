@@ -1,5 +1,5 @@
 // src/features/auth/api/authApi.js
-import api from "../shared/api/axios.js";
+import api from "../api/axios.js";
 // Corrected path to token.js
 import {
   setAuthData,

@@ -1,7 +1,7 @@
 // src/components/dashboard/admin/UsersView.jsx
 import { useState, useEffect, useCallback, useMemo } from "react";
-import api from "../../../../shared/api/axios";
-import { useSocket } from "../../../../app/providers/SocketProvider";
+import api from "@api/axios";
+import { useSocket } from "@providers/SocketProvider";
 
 const ROW_HEIGHT = 68;
 
@@ -318,4 +318,6 @@ export default function UsersView() {
     </div>
   );
 }
+
+
 

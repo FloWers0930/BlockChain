@@ -1,8 +1,8 @@
 // src/pages/ChangePassword.jsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../../app/providers/AuthProvider";
-import api from "../../shared/api/axios";
+import { useAuth } from "@providers/AuthProvider";
+import api from "@api/axios";
 import zxcvbn from "zxcvbn";
 
 export default function ChangePassword() {
@@ -197,4 +197,6 @@ export default function ChangePassword() {
     </div>
   );
 }
+
+
 

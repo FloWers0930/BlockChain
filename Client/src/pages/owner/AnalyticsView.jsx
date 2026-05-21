@@ -1,8 +1,8 @@
 // src/components/dashboard/owner/AnalyticsView.jsx
 import { useEffect, useState, useCallback } from "react";
-import api from "../../../shared/api/axios";
-import { useSocket } from "../../../../app/providers/SocketProvider";
-import { useAuth } from "../../../../app/providers/AuthProvider";
+import api from "@api/axios";
+import { useSocket } from "@providers/SocketProvider";
+import { useAuth } from "@providers/AuthProvider";
 import {
   DollarSign,
   Calendar,
@@ -495,4 +495,7 @@ export default function AnalyticsView() {
     </div>
   );
 }
+
+
+
 

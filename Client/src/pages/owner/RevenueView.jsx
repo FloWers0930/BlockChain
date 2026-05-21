@@ -1,7 +1,7 @@
 // src/components/dashboard/owner/RevenueView.jsx
 import { useState, useEffect, useCallback } from "react";
-import api from "../../../shared/api/axios";
-import { useSocket } from "../../../../app/providers/SocketProvider";
+import api from "@api/axios";
+import { useSocket } from "@providers/SocketProvider";
 import { DollarSign, Calendar, RefreshCw, Download } from "lucide-react";
 
 // ─── Stat Card (consistent with other views) ───────────────────────────────
@@ -529,4 +529,7 @@ export default function RevenueView() {
     </div>
   );
 }
+
+
+
 

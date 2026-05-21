@@ -1,8 +1,8 @@
 // src/components/dashboard/owner/DashboardView.jsx
 import { useEffect, useState, useCallback, useMemo } from "react";
-import api from "../../../shared/api/axios";
-import { useSocket } from "../../../../app/providers/SocketProvider";
-import { useAuth } from "../../../../app/providers/AuthProvider";
+import api from "@api/axios";
+import { useSocket } from "@providers/SocketProvider";
+import { useAuth } from "@providers/AuthProvider";
 import { DollarSign, Ticket, Car, PieChart, RefreshCw } from "lucide-react";
 
 import {
@@ -644,4 +644,7 @@ export default function DashboardView() {
     </div>
   );
 }
+
+
+
 

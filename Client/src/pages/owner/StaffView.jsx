@@ -1,8 +1,8 @@
 // src/components/dashboard/owner/StaffView.jsx
 import { useState, useEffect, useCallback, useMemo } from "react";
-import api from "../../shared/api/axios";
-import { useSocket } from "../../../../app/providers/SocketProvider";
-import { useAuth } from "../../../../app/providers/AuthProvider";
+import api from "@api/axios";
+import { useSocket } from "@providers/SocketProvider";
+import { useAuth } from "@providers/AuthProvider";
 
 const DOCUMENT_CATEGORIES = [
   "ID Proof",
@@ -1349,3 +1349,6 @@ export default function StaffView() {
     </div>
   );
 }
+
+
+

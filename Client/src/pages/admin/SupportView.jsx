@@ -1,7 +1,7 @@
 // src/components/dashboard/admin/SupportView.jsx
 import { useState, useEffect, useCallback } from "react";
-import api from "../../../../shared/api/axios";
-import { useSocket } from "../../../../app/providers/SocketProvider";
+import api from "@api/axios";
+import { useSocket } from "@providers/SocketProvider";
 
 export default function SupportView() {
   const { socket } = useSocket();
@@ -433,4 +433,6 @@ export default function SupportView() {
     </div>
   );
 }
+
+
 
