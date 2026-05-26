@@ -1,3 +1,4 @@
+// src/api/axios.js
 import axios from "axios";
 import {
   getToken,
@@ -12,9 +13,9 @@ const SAFE_METHODS = new Set(["get", "head", "options"]);
 const CSRF_COOKIE_NAME = "csrfToken";
 
 // ── Request timeout configuration ─────────────────────────────────────────────
-const REQUEST_TIMEOUT = 15000; // 15 seconds
-const SLOW_REQUEST_THRESHOLD = 5000; // Log requests slower than 5s
-const REQUEST_ABORT_TIMEOUT = 30000; // Hard timeout for requests
+const REQUEST_TIMEOUT = 15000;
+const SLOW_REQUEST_THRESHOLD = 5000;
+const REQUEST_ABORT_TIMEOUT = 30000;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -24,7 +25,6 @@ const api = axios.create({
 });
 
 // ── Request timeout handler ───────────────────────────────────────────────────
-// Create AbortController for each request to handle timeouts gracefully
 let requestCounter = 0;
 const activeRequests = new Map();
 
@@ -52,11 +52,7 @@ api.interceptors.response.use(
     const { _requestId, _startTime } = response.config;
     const duration = Date.now() - _startTime;
 
-    // Log slow requests in development
-    if (
-      process.env.NODE_ENV === "development" &&
-      duration > SLOW_REQUEST_THRESHOLD
-    ) {
+    if (import.meta.env.DEV && duration > SLOW_REQUEST_THRESHOLD) {
       console.warn(
         `⚠️ Slow request: ${response.config.method.toUpperCase()} ${response.config.url} took ${duration}ms`,
       );
@@ -78,7 +74,6 @@ api.interceptors.response.use(
       activeRequests.delete(config._requestId);
     }
 
-    // Handle timeout errors gracefully
     if (error.name === "AbortError" || error.code === "ECONNABORTED") {
       return Promise.reject(
         new Error(
@@ -155,24 +150,20 @@ api.interceptors.request.use(
 // ── Response interceptor — handle 401 with token refresh ─────────────────────
 api.interceptors.response.use(
   (response) => response,
-
   async (error) => {
     const originalRequest = error.config;
 
-    // FIX: Don't try to refresh token if the login or refresh request itself failed
     if (
-      originalRequest.url.includes("/auth/login") ||
-      originalRequest.url.includes("/auth/refresh")
+      originalRequest.url?.includes("/auth/login") ||
+      originalRequest.url?.includes("/auth/refresh")
     ) {
       return Promise.reject(error);
     }
 
-    // Only attempt refresh on 401, and only once per request
     if (error.response?.status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
     }
 
-    // Another refresh is already running — queue this request
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
@@ -204,13 +195,11 @@ api.interceptors.response.use(
       );
 
       if (!data?.token || !data?.user) {
-        // Avoid noisy console spam; redirect handled below.
         processQueue(new Error("Invalid refresh response"));
         redirectToLogin();
         return Promise.reject(new Error("Session expired"));
       }
 
-      // Validate refreshed auth data
       const isValid = setAuthData(data);
       if (!isValid) {
         processQueue(new Error("Invalid auth data"));

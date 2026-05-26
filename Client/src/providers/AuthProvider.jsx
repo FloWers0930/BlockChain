@@ -7,14 +7,38 @@ import {
   useCallback,
   useMemo,
 } from "react";
+
 import {
   login as apiLogin,
   logout as apiLogout,
   getMe as apiGetMe,
-  isAuthenticated as isTokenValid,
-} from "../api/authApi.js";
+} from "@api/authApi";
+
+import { isAuthenticated as isTokenValid } from "@api/token";
 
 const AuthContext = createContext(null);
+
+const PUBLIC_ROUTES = [
+  "/",
+  "/login",
+  "/stations",
+  "/blog",
+  "/help",
+  "/contact",
+  "/about",
+  "/how-it-works",
+  "/privacy",
+  "/terms",
+  "/cookie-policy",
+  "/press",
+  "/sitemap",
+  "/social",
+  "/download",
+  "/unauthorized",
+  "/support",
+  "/customer-support",
+  "/careers",
+];
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -22,25 +46,35 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // ── Wipe local auth state + call server logout ──────────────────────────
   const clearAuth = useCallback(async () => {
     try {
-      await apiLogout(); // notifies server + clears localStorage
-    } catch {
-      // server call failing shouldn't block the local wipe
+      await apiLogout();
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("Logout API call failed:", err?.message || err);
+      }
     } finally {
       setUser(null);
       setIsAuthenticated(false);
     }
   }, []);
 
-  // ── Initialise on mount: verify token is valid before hitting /me ────────
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // isTokenValid() decodes the JWT and checks exp — skips the network
-        // call entirely if the token is already expired or missing
         if (!isTokenValid()) {
+          const hadToken = !!localStorage.getItem("token");
+          const currentPath = window.location.pathname;
+          const isPublicRoute =
+            PUBLIC_ROUTES.includes(currentPath) ||
+            currentPath.startsWith("/blog/") ||
+            currentPath.startsWith("/stations/");
+
+          if (hadToken && !isPublicRoute && import.meta.env.DEV) {
+            console.warn(
+              "Token expired or invalid on protected route — clearing auth state",
+            );
+          }
           return;
         }
 
@@ -52,10 +86,10 @@ export const AuthProvider = ({ children }) => {
           await clearAuth();
         }
       } catch (err) {
-        if (process.env.NODE_ENV === "development") {
+        if (import.meta.env.DEV) {
           console.warn(
             "Auth check failed on startup:",
-            err?.response?.data?.message || err.message,
+            err?.response?.data?.message || err?.message || err,
           );
         }
         await clearAuth();
@@ -67,10 +101,7 @@ export const AuthProvider = ({ children }) => {
 
     initAuth();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  // clearAuth is stable (useCallback with no deps) — safe to omit from array
-  // to prevent double-firing in React StrictMode
 
-  // ── Login ────────────────────────────────────────────────────────────────
   const login = useCallback(async (identifier, password) => {
     const data = await apiLogin(identifier, password);
     if (data?.user) {
@@ -80,24 +111,21 @@ export const AuthProvider = ({ children }) => {
     return data;
   }, []);
 
-  // ── Logout ───────────────────────────────────────────────────────────────
   const logout = useCallback(async () => {
     await clearAuth();
   }, [clearAuth]);
 
-  // ── Refresh user data from server (e.g. after profile update) ────────────
   const refreshUser = useCallback(async () => {
     try {
       const userData = await apiGetMe();
       if (userData) setUser(userData);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("Failed to refresh user data:", err.message);
+      if (import.meta.env.DEV) {
+        console.warn("Failed to refresh user data:", err?.message || err);
       }
     }
   }, []);
 
-  // ── Role helper ──────────────────────────────────────────────────────────
   const hasRole = useCallback(
     (allowedRoles) => {
       if (!user?.role) return false;
@@ -107,7 +135,6 @@ export const AuthProvider = ({ children }) => {
     [user],
   );
 
-  // ── Context value (memoised to prevent unnecessary re-renders) ───────────
   const value = useMemo(
     () => ({
       user,
@@ -133,12 +160,23 @@ export const AuthProvider = ({ children }) => {
     ],
   );
 
-  // ── Branded loading screen while the initial auth check runs ─────────────
   if (!authChecked) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-gradient-to-br from-slate-50 to-violet-50/30">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-14 w-14 animate-spin rounded-2xl border-4 border-violet-200 border-t-violet-600" />
+      <div className="relative flex h-screen w-screen items-center justify-center bg-gradient-to-br from-slate-50 to-violet-50/30 overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-40 h-40 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-float pointer-events-none" />
+        <div
+          className="absolute bottom-1/4 right-1/4 w-40 h-40 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-float pointer-events-none"
+          style={{ animationDelay: "1.5s" }}
+        />
+        <div className="relative flex flex-col items-center gap-4">
+          <div className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center mb-2 shadow-lg shadow-indigo-500/25">
+            <img
+              src="/assets/star-removebg-preview.jpg"
+              alt="Statio Nexus"
+              className="w-8 h-8 object-contain"
+            />
+          </div>
+          <div className="h-12 w-12 animate-spin rounded-2xl border-4 border-violet-200 border-t-violet-600" />
           <p className="text-sm font-medium text-slate-500">
             Verifying access…
           </p>

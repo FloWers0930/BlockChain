@@ -14,7 +14,10 @@ const logger = require("./Components/config/logger");
 const { initSentry } = require("./Components/config/sentry");
 const loggerMiddleware = require("./Components/middlewares/requestLogger");
 const { apiLimiter } = require("./Components/middlewares/rateLimiter");
-const {csrfProtection,generateNewCSRFToken,} = require("./Components/middlewares/csrf");
+const {
+  csrfProtection,
+  generateNewCSRFToken,
+} = require("./Components/middlewares/csrf");
 const errorHandler = require("./Components/middlewares/errorHandler");
 const Audit = require("./Components/modules/audit/audit.model");
 const authRoutes = require("./Components/modules/auth/auth.routes");
@@ -35,7 +38,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") ?? [
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
-// ── Middleware ────────────────────────────────────────────────────────────────
+// ── Middleware ───────────────────────────────────────────────────────────────
 app.use(
   helmet({
     hsts: {
@@ -266,9 +269,10 @@ const start = async () => {
     }
   };
 
-  app.set("notificationService", notificationService);
-  app.set("emitAuditLog", emitAuditLog);
-  app.set("io", io);
+  // ✅ UPDATED: Use app.locals for reliable access across all routes
+  app.locals.notificationService = notificationService;
+  app.locals.emitAuditLog = emitAuditLog;
+  app.locals.io = io;
 
   server.listen(PORT, () => {
     logger.info(`🚀 Server running on port ${PORT}`);

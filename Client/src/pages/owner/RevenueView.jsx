@@ -2,20 +2,19 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "@api/axios";
 import { useSocket } from "@providers/SocketProvider";
-import { DollarSign, Calendar, RefreshCw, Download } from "lucide-react";
 
-// ─── Stat Card (consistent with other views) ───────────────────────────────
-const StatCard = ({ label, value, icon: Icon, accent }) => (
+// ─── Stat Card (consistent with StaffView design) ─────────────────────────
+const StatCard = ({ label, value, icon, accent }) => (
   <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
     <div className="flex justify-between items-start mb-4">
       <p className="text-slate-400 text-xs font-semibold tracking-widest uppercase">
         {label}
       </p>
       <div
-        className="w-9 h-9 rounded-2xl flex items-center justify-center text-xl"
+        className="w-9 h-9 rounded-2xl flex items-center justify-center"
         style={{ backgroundColor: `${accent}15`, color: accent }}
       >
-        {Icon && <Icon size={26} strokeWidth={2.25} />}
+        {icon}
       </div>
     </div>
     <p
@@ -27,28 +26,60 @@ const StatCard = ({ label, value, icon: Icon, accent }) => (
   </div>
 );
 
-// ─── Empty State Placeholder ─────────────────────────────────────────────────
+// ─── Empty State Placeholder ──────────────────────────────────────────────
 const EmptyState = ({
-  icon = "fa-receipt",
+  icon = "receipt",
   title = "No transactions yet",
   subtitle = "Bookings will appear here once they are made",
 }) => (
   <div className="h-64 flex flex-col items-center justify-center text-slate-300 py-12">
-    <i className={`fas ${icon} text-7xl mb-6 opacity-40`} />
-    <p className="text-slate-400 font-medium text-lg mb-1">{title}</p>
+    <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-6">
+      {icon === "receipt" ? (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-10 h-10 text-slate-300"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z"
+          />
+        </svg>
+      ) : (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-10 h-10 text-slate-300"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          />
+        </svg>
+      )}
+    </div>
+    <p className="text-slate-600 font-semibold text-lg mb-1">{title}</p>
     <p className="text-slate-400 text-sm max-w-[240px] text-center">
       {subtitle}
     </p>
   </div>
 );
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────
 export default function RevenueView() {
   const { socket } = useSocket();
 
   const [bookings, setBookings] = useState([]);
 
-  // ── Section loading + error states ───────────────────────────────────────
+  // ── Section loading + error states ──────────────────────────────────────
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -56,9 +87,28 @@ export default function RevenueView() {
   const [showAllModal, setShowAllModal] = useState(false);
   const [notification, setNotification] = useState("");
 
-  // ── Pagination for "All Bookings" modal ──────────────────────────────────
+  // ── Pagination for "All Bookings" modal ─────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // ── Real-time clock state ───────────────────────────────────────────────
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (date) => {
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+  };
 
   // Fetch owner's bookings
   const fetchRevenue = useCallback(async (isRefresh = false) => {
@@ -71,7 +121,9 @@ export default function RevenueView() {
       setError(null);
       setCurrentPage(1);
     } catch (err) {
-      console.error("Failed to fetch revenue data:", err);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Failed to fetch revenue data:", err);
+      }
       const errorMsg =
         err?.response?.data?.message ||
         err?.message ||
@@ -199,9 +251,23 @@ export default function RevenueView() {
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 space-y-7">
+      {/* Toast */}
       {notification && (
         <div className="fixed top-6 right-6 z-50 max-w-md bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3">
-          <i className="fas fa-check-circle text-2xl"></i>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-6 h-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
           <p className="font-medium">{notification}</p>
         </div>
       )}
@@ -218,40 +284,117 @@ export default function RevenueView() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* Live indicator */}
-          <div className="flex items-center gap-2 bg-white border border-slate-100 shadow-sm rounded-full px-4 py-2">
-            <span
-              className={`w-2 h-2 rounded-full bg-emerald-400 ${refreshing ? "animate-ping" : "animate-pulse"}`}
-            />
-            <span className="text-xs text-slate-400 font-medium">
+          {/* ✅ Live indicator with real-time clock */}
+          <div className="flex items-center gap-3 bg-white border border-slate-100 shadow-sm rounded-full px-5 py-2.5">
+            <div className="flex items-center gap-2">
               {refreshing ? (
                 <>
-                  <i className="fas fa-spinner animate-spin mr-1" />
-                  Updating…
+                  <svg
+                    className="animate-spin w-4 h-4 text-indigo-400"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8z"
+                    />
+                  </svg>
+                  <span className="text-xs text-slate-400 font-medium">
+                    Syncing…
+                  </span>
                 </>
               ) : initialLoading ? (
-                "Loading…"
+                <span className="text-xs text-slate-400 font-medium">
+                  Loading…
+                </span>
               ) : (
-                "Live"
+                <>
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs text-slate-400 font-medium">
+                    Live
+                  </span>
+                </>
               )}
-            </span>
+            </div>
+
+            {!refreshing && !initialLoading && (
+              <>
+                <div className="h-4 w-px bg-slate-200" />
+                <div className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-3.5 h-3.5 text-slate-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span className="text-xs font-mono font-semibold text-slate-600">
+                    {formatTime(currentTime)}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Refresh Button - Icon Only */}
+          {/* Refresh button */}
           <button
             onClick={() => fetchRevenue(true)}
             disabled={refreshing}
             className="w-9 h-9 rounded-full bg-white border border-slate-100 shadow-sm hover:bg-slate-50 flex items-center justify-center transition-colors disabled:opacity-60"
             title="Refresh"
           >
-            <RefreshCw size={20} className={refreshing ? "animate-spin" : ""} />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className={`w-4 h-4 text-slate-400 transition-transform duration-500 ${refreshing ? "animate-spin" : "hover:rotate-180"}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
           </button>
 
+          {/* Generate Report */}
           <button
             onClick={downloadCSV}
             className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-3xl font-semibold hover:from-emerald-700 hover:to-teal-700 transition-all active:scale-95 shadow-xl shadow-emerald-300 text-sm"
           >
-            <Download size={18} />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
             Generate Report
           </button>
         </div>
@@ -261,7 +404,20 @@ export default function RevenueView() {
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3 text-red-700">
-            <i className="fas fa-triangle-exclamation text-lg" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
             <span className="font-medium text-sm">{error}</span>
           </div>
           <button
@@ -276,36 +432,115 @@ export default function RevenueView() {
       {/* Stats Cards with Icons */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          label="Today’s Revenue"
+          label="Today's Revenue"
           value={stats.todayRevenue}
-          icon={DollarSign}
           accent="#10b981"
+          icon={
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.25}
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          }
         />
         <StatCard
           label="Pending Payouts"
           value={stats.pendingPayouts}
-          icon={DollarSign}
           accent="#f59e0b"
+          icon={
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.25}
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          }
         />
         <StatCard
           label="This Month"
           value={stats.monthlyRevenue}
-          icon={Calendar}
           accent="#6366f1"
+          icon={
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.25}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+          }
         />
         <StatCard
           label="Total Earnings (YTD)"
           value={stats.totalRevenue}
-          icon={DollarSign}
           accent="#64748b"
+          icon={
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.25}
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          }
         />
       </div>
 
-      {/* Recent Transactions Table + Modal (exactly as you had) */}
+      {/* Recent Transactions Table */}
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden relative">
         {refreshing && !initialLoading && (
           <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md shadow-sm px-3 py-1 rounded-2xl text-xs font-medium flex items-center gap-1.5 z-10 text-indigo-500">
-            <i className="fas fa-spinner animate-spin" />
+            <svg
+              className="animate-spin w-3 h-3"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8z"
+              />
+            </svg>
             Updating…
           </div>
         )}
@@ -318,7 +553,21 @@ export default function RevenueView() {
             onClick={() => setShowAllModal(true)}
             className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 text-sm"
           >
-            View All Bookings →
+            View All Bookings
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
           </button>
         </div>
 
@@ -401,7 +650,7 @@ export default function RevenueView() {
         )}
       </div>
 
-      {/* View All Bookings Modal with Pagination (unchanged) */}
+      {/* View All Bookings Modal */}
       {showAllModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-3xl w-full max-w-6xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
@@ -420,7 +669,7 @@ export default function RevenueView() {
             <div className="flex-1 overflow-auto p-6">
               {bookings.length === 0 ? (
                 <EmptyState
-                  icon="fa-file-invoice-dollar"
+                  icon="document"
                   title="No bookings found"
                   subtitle="All your booking transactions will appear here"
                 />
@@ -529,7 +778,3 @@ export default function RevenueView() {
     </div>
   );
 }
-
-
-
-

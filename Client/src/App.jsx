@@ -1,2 +1,2 @@
-export { default } from './app/router';
-
+// src/App.jsx - RESTORE THIS
+export { default } from "./router";

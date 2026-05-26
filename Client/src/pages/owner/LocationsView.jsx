@@ -1,8 +1,15 @@
 // src/components/dashboard/owner/LocationsView.jsx
-import { useEffect, useState, useCallback, useMemo, memo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@api/axios";
 import { useSocket } from "@providers/SocketProvider";
-import { RefreshCw, Plus, MapPin, Pencil, Trash2 } from "lucide-react";
+import {
+  RefreshCw,
+  Plus,
+  MapPin,
+  Pencil,
+  ToggleLeft,
+  ToggleRight,
+} from "lucide-react";
 
 export default function LocationsView() {
   const { socket } = useSocket();
@@ -25,10 +32,9 @@ export default function LocationsView() {
   const [editingStation, setEditingStation] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleteProgress, setDeleteProgress] = useState(0);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false);
+  const [disableTarget, setDisableTarget] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const [formData, setFormData] = useState({
     location: "",
@@ -38,13 +44,32 @@ export default function LocationsView() {
     totalSpots: "",
   });
 
+  // Real-time clock state
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (date) => {
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+  };
+
   // Fetch all spots for this owner (pagination helper)
   const fetchAllSpots = useCallback(async () => {
     const abortController = new AbortController();
     let allSpots = [];
     let page = 1;
     let hasMore = true;
-    const LIMIT = 100; // Reasonable pagination limit
+    const LIMIT = 100;
 
     try {
       while (hasMore) {
@@ -86,7 +111,7 @@ export default function LocationsView() {
             if (!pendingMap[name])
               pendingMap[name] = {
                 name,
-                address: spot.address || "Metro Manila",
+                address: spot.address || "",
                 totalPendingSpots: 0,
                 spots: [],
               };
@@ -104,10 +129,11 @@ export default function LocationsView() {
           if (!stationMap[name]) {
             stationMap[name] = {
               name,
-              address: spot.address || "Metro Manila",
+              address: spot.address || "",
               totalSpots: 0,
               freeSpots: 0,
               usedSpots: 0,
+              isEnabled: spot.isEnabled !== false, // Default to true if not set
             };
           }
           stationMap[name].totalSpots += 1;
@@ -181,9 +207,9 @@ export default function LocationsView() {
       : setSelectedStations(new Set(filteredStations.map((s) => s.name)));
   };
 
-  const confirmDelete = (type, payload) => {
-    setDeleteTarget({ type, ...payload });
-    setShowDeleteConfirm(true);
+  const confirmDisable = (station) => {
+    setDisableTarget(station);
+    setShowDisableConfirm(true);
   };
 
   const openEditModal = (station) => {
@@ -198,7 +224,7 @@ export default function LocationsView() {
     setShowEditModal(true);
   };
 
-  // ── OPTIMISTIC UI HELPERS (unchanged) ─────────────────────────────────────
+  // ── OPTIMISTIC UI HELPERS ────────────────────────────────────────────────
   const optimisticApproveGroup = (group) => {
     const previousPending = [...pendingGroups];
     const previousApproved = [...approvedStations];
@@ -211,6 +237,7 @@ export default function LocationsView() {
       totalSpots: group.totalPendingSpots,
       freeSpots: group.totalPendingSpots,
       usedSpots: 0,
+      isEnabled: true,
     };
     setApprovedStations((prev) => [...prev, optimisticStation]);
 
@@ -231,6 +258,7 @@ export default function LocationsView() {
       totalSpots: parseInt(newStationData.totalSpots) || 1,
       freeSpots: parseInt(newStationData.totalSpots) || 1,
       usedSpots: 0,
+      isEnabled: true,
     };
     setApprovedStations((prev) => [...prev, optimisticStation]);
     return previousApproved;
@@ -252,21 +280,17 @@ export default function LocationsView() {
     return previousApproved;
   };
 
-  const optimisticDeleteStations = (namesToDelete) => {
+  const optimisticToggleStation = (name, newStatus) => {
     const previousApproved = [...approvedStations];
-    const previousSelected = new Set(selectedStations);
     setApprovedStations((prev) =>
-      prev.filter((s) => !namesToDelete.includes(s.name)),
+      prev.map((station) =>
+        station.name === name ? { ...station, isEnabled: newStatus } : station,
+      ),
     );
-    setSelectedStations((prev) => {
-      const newSet = new Set(prev);
-      namesToDelete.forEach((n) => newSet.delete(n));
-      return newSet;
-    });
-    return { previousApproved, previousSelected };
+    return previousApproved;
   };
 
-  // ── OPTIMISTIC ACTIONS (unchanged) ────────────────────────────────────────
+  // ── OPTIMISTIC ACTIONS ───────────────────────────────────────────────────
   const handleApproveGroup = async (group) => {
     if (
       !window.confirm(
@@ -287,9 +311,7 @@ export default function LocationsView() {
       setNotification(`✅ "${group.name}" approved!`);
       setTimeout(() => setNotification(""), 4000);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        console.error(err);
-      }
+      if (process.env.NODE_ENV === "development") console.error(err);
       setPendingGroups(previousPending);
       setApprovedStations(previousApproved);
       setNotification("⚠️ Failed to approve station");
@@ -316,9 +338,7 @@ export default function LocationsView() {
       setNotification(`❌ "${group.name}" permanently deleted`);
       setTimeout(() => setNotification(""), 4000);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        console.error(err);
-      }
+      if (process.env.NODE_ENV === "development") console.error(err);
       setPendingGroups(previousPending);
       setNotification("⚠️ Failed to reject station");
     } finally {
@@ -326,6 +346,7 @@ export default function LocationsView() {
     }
   };
 
+  // ✅ FIXED: Send ONE request with totalSpots parameter
   const handleAddStation = async (e) => {
     e.preventDefault();
     const count = parseInt(formData.totalSpots) || 1;
@@ -334,20 +355,15 @@ export default function LocationsView() {
     const previousApproved = optimisticAddStation(formData);
 
     try {
-      const payloadBase = {
+      // ✅ Send ONE request. Backend handles batch creation, single audit log, and single socket event
+      await api.post("/owner/spots", {
         location: formData.location.trim(),
         address: formData.address.trim(),
         zone: formData.zone.trim() || "General",
         hourlyRate: parseFloat(formData.hourlyRate) || 50,
         status: "available",
-      };
-      const promises = Array.from({ length: count }, (_, i) =>
-        api.post("/owner/spots", {
-          ...payloadBase,
-          spotNumber: `S-${Date.now()}-${i + 1}`,
-        }),
-      );
-      await Promise.all(promises);
+        totalSpots: count,
+      });
 
       setNotification(`✅ ${count} new station spots added!`);
       setTimeout(() => setNotification(""), 4000);
@@ -359,10 +375,11 @@ export default function LocationsView() {
         hourlyRate: "",
         totalSpots: "",
       });
+
+      // Refresh to ensure we have the latest data from the batch insert
+      await fetchStations(true);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        console.error(err);
-      }
+      if (process.env.NODE_ENV === "development") console.error(err);
       setApprovedStations(previousApproved);
       setNotification("⚠️ Failed to add station");
     } finally {
@@ -400,9 +417,7 @@ export default function LocationsView() {
       setTimeout(() => setNotification(""), 3000);
       setShowEditModal(false);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        console.error(err);
-      }
+      if (process.env.NODE_ENV === "development") console.error(err);
       setApprovedStations(previousApproved);
       setNotification("⚠️ Update failed.");
     } finally {
@@ -410,71 +425,32 @@ export default function LocationsView() {
     }
   };
 
-  const executeDelete = async () => {
-    setShowDeleteConfirm(false);
-    if (!deleteTarget) return;
-
-    setIsDeleting(true);
-    setDeleteProgress(0);
-    setSubmitting(true);
-
-    let namesToDelete = [];
-    if (deleteTarget.type === "single") {
-      namesToDelete = [deleteTarget.name];
-    } else {
-      namesToDelete = Array.from(selectedStations);
-    }
-
-    const { previousApproved, previousSelected } =
-      optimisticDeleteStations(namesToDelete);
+  const handleToggleStation = async (station, newStatus) => {
+    setIsProcessing(true);
+    const previousApproved = optimisticToggleStation(station.name, newStatus);
 
     try {
       const allSpots = await fetchAllSpots();
-      let spotsToDelete =
-        deleteTarget.type === "single"
-          ? allSpots.filter((s) => s.location === deleteTarget.name)
-          : allSpots.filter((s) => namesToDelete.includes(s.location));
+      const spotsToUpdate = allSpots.filter((s) => s.location === station.name);
 
-      // Require confirmation for bulk deletes
-      if (deleteTarget.type === "bulk" && spotsToDelete.length > 0) {
-        const confirmed = window.confirm(
-          `Permanently delete ${spotsToDelete.length} spot(s) across ${namesToDelete.length} location(s)? This cannot be undone.`
-        );
-        if (!confirmed) {
-          setApprovedStations(previousApproved);
-          setSelectedStations(previousSelected);
-          setNotification("❌ Delete cancelled");
-          return;
-        }
-      }
+      await Promise.all(
+        spotsToUpdate.map((spot) =>
+          api.patch(`/owner/spots/${spot._id}`, { isEnabled: newStatus }),
+        ),
+      );
 
-      const totalSpots = spotsToDelete.length;
-      const CHUNK_SIZE = 50;
-
-      for (let i = 0; i < spotsToDelete.length; i += CHUNK_SIZE) {
-        const chunk = spotsToDelete.slice(i, i + CHUNK_SIZE);
-        await Promise.allSettled(
-          chunk.map((spot) => api.delete(`/owner/spots/${spot._id}`)),
-        );
-        setDeleteProgress(Math.round(((i + chunk.length) / totalSpots) * 100));
-      }
-
-      setDeleteProgress(100);
-      setTimeout(() => {
-        setNotification("✅ Stations permanently deleted");
-        setTimeout(() => setNotification(""), 3500);
-      }, 600);
+      setNotification(
+        `✅ "${station.name}" ${newStatus ? "enabled" : "disabled"} successfully!`,
+      );
+      setTimeout(() => setNotification(""), 3000);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        console.error(err);
-      }
+      if (process.env.NODE_ENV === "development") console.error(err);
       setApprovedStations(previousApproved);
-      setSelectedStations(previousSelected);
-      setNotification("⚠️ Delete failed");
+      setNotification("⚠️ Failed to update station status");
     } finally {
-      setSubmitting(false);
-      setIsDeleting(false);
-      setDeleteTarget(null);
+      setIsProcessing(false);
+      setShowDisableConfirm(false);
+      setDisableTarget(null);
     }
   };
 
@@ -499,33 +475,53 @@ export default function LocationsView() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* Live indicator */}
-          <div className="flex items-center gap-2 bg-white border border-slate-100 shadow-sm rounded-full px-4 py-2">
-            <span
-              className={`w-2 h-2 rounded-full bg-emerald-400 ${refreshing ? "animate-ping" : "animate-pulse"}`}
-            />
-            <span className="text-xs text-slate-400 font-medium">
-              {refreshing ? (
-                <>
-                  <i className="fas fa-spinner animate-spin mr-1" />
-                  Updating…
-                </>
-              ) : initialLoading ? (
-                "Loading…"
-              ) : (
-                "Live"
-              )}
-            </span>
+          {/* Live indicator with real-time clock */}
+          <div className="flex items-center gap-3 bg-white border border-slate-100 shadow-sm rounded-full px-5 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs text-slate-400 font-medium">
+                {refreshing ? (
+                  <>
+                    <i className="fas fa-spinner animate-spin mr-1" />
+                    Syncing…
+                  </>
+                ) : initialLoading ? (
+                  "Loading…"
+                ) : (
+                  "Live"
+                )}
+              </span>
+            </div>
+            <div className="h-4 w-px bg-slate-200" />
+            <div className="flex items-center gap-1.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-3.5 h-3.5 text-slate-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span className="text-xs font-mono font-semibold text-slate-600">
+                {formatTime(currentTime)}
+              </span>
+            </div>
           </div>
 
-          {/* Refresh Button - Icon Only */}
+          {/* Refresh Button */}
           <button
             onClick={() => fetchStations(true)}
             disabled={refreshing || submitting}
-            className="w-9 h-9 rounded-full bg-white border border-slate-100 shadow-sm hover:bg-slate-50 flex items-center justify-center transition-colors disabled:opacity-60"
+            className="w-10 h-10 rounded-full bg-white border border-slate-100 shadow-sm hover:bg-slate-50 flex items-center justify-center transition-colors disabled:opacity-60"
             title="Refresh"
           >
-            <RefreshCw size={20} className={refreshing ? "animate-spin" : ""} />
+            <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
           </button>
 
           {/* Add New Station */}
@@ -569,7 +565,9 @@ export default function LocationsView() {
                 className="bg-white border border-amber-200 hover:border-amber-300 rounded-3xl p-7 shadow-sm"
               >
                 <h4 className="font-semibold text-xl">{group.name}</h4>
-                <p className="text-slate-500 text-sm mt-1">{group.address}</p>
+                <p className="text-slate-500 text-sm mt-1">
+                  {group.address || "No address provided"}
+                </p>
                 <p className="inline-flex items-center gap-1 text-xs font-medium bg-amber-100 text-amber-700 px-3 py-1 rounded-3xl mt-4">
                   <i className="fas fa-clock"></i> {group.totalPendingSpots}{" "}
                   spots pending
@@ -596,9 +594,9 @@ export default function LocationsView() {
         </div>
       )}
 
-      {/* Approved Stations */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-        <div className="flex items-center justify-between mb-6 relative">
+      {/* Approved Stations - TABLE LAYOUT */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden relative">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
           <div>
             <h3 className="text-sm font-bold text-slate-800">
               Approved Stations
@@ -620,7 +618,7 @@ export default function LocationsView() {
           )}
 
           {refreshing && !initialLoading && (
-            <div className="absolute top-0 right-0 bg-white/90 backdrop-blur-md shadow-sm px-3 py-1 rounded-2xl text-xs font-medium flex items-center gap-1.5 z-10 text-indigo-500">
+            <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md shadow-sm px-3 py-1 rounded-2xl text-xs font-medium flex items-center gap-1.5 z-10 text-indigo-500">
               <i className="fas fa-spinner animate-spin" />
               Updating…
             </div>
@@ -628,127 +626,170 @@ export default function LocationsView() {
         </div>
 
         {initialLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="p-8 space-y-6">
             {[...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-3xl shadow-sm overflow-hidden animate-pulse border border-slate-100"
-              >
-                <div className="h-2 bg-gradient-to-r from-blue-200 via-purple-200 to-pink-200"></div>
-                <div className="p-7 space-y-4">
-                  <div className="h-6 bg-slate-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-slate-200 rounded w-1/2"></div>
-                  <div className="h-12 bg-slate-200 rounded"></div>
-                </div>
+              <div key={i} className="flex items-center gap-6 animate-pulse">
+                <div className="h-4 bg-slate-200 rounded w-40" />
+                <div className="h-4 bg-slate-200 rounded w-32" />
+                <div className="h-4 bg-slate-200 rounded w-24" />
+                <div className="h-4 bg-slate-200 rounded w-20" />
+                <div className="h-4 bg-slate-200 rounded w-20" />
+                <div className="h-4 bg-slate-200 rounded w-24 ml-auto" />
               </div>
             ))}
           </div>
         ) : filteredStations.length === 0 ? (
-          <div className="h-80 flex flex-col items-center justify-center text-slate-300">
-            <i className="fas fa-map-marker-alt text-7xl mb-6" />
-            <p className="text-sm text-slate-400">No stations found</p>
+          <div className="h-72 flex flex-col items-center justify-center gap-4">
+            <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
+              <MapPin className="w-10 h-10 text-slate-300" />
+            </div>
+            <div className="text-center">
+              <p className="text-slate-600 font-semibold text-lg">
+                No stations found
+              </p>
+              <p className="text-slate-400 text-sm mt-1">
+                {searchTerm
+                  ? "Try adjusting your search"
+                  : "Add your first station to get started"}
+              </p>
+            </div>
+            {!searchTerm && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-3xl font-semibold text-sm hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-200"
+              >
+                <Plus size={16} />
+                Add New Station
+              </button>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredStations.map((station) => {
-              const occupancyPercent =
-                station.totalSpots > 0
-                  ? Math.round((station.usedSpots / station.totalSpots) * 100)
-                  : 0;
-              return (
-                <div
-                  key={station.name}
-                  className="group bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden border border-slate-100 hover:border-slate-200"
-                >
-                  <div className="h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
-                  <div className="p-7">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="text-blue-500" size={22} />
-                          <h3 className="text-2xl font-semibold text-slate-900">
-                            {station.name}
-                          </h3>
-                        </div>
-                        <p className="text-slate-500 text-sm mt-1 line-clamp-1">
-                          {station.address}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1000px]">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500">
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedStations.size === filteredStations.length
+                      }
+                      onChange={selectAll}
+                      className="w-5 h-5 accent-blue-600"
+                    />
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500">
+                    Station Name
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500">
+                    Address
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500">
+                    Total Spots
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500">
+                    Available
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500">
+                    Occupied
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredStations.map((station) => {
+                  const occupancyPercent =
+                    station.totalSpots > 0
+                      ? Math.round(
+                          (station.usedSpots / station.totalSpots) * 100,
+                        )
+                      : 0;
+                  return (
+                    <tr
+                      key={station.name}
+                      className={`hover:bg-slate-50 transition-colors ${!station.isEnabled ? "bg-slate-50 opacity-60" : ""}`}
+                    >
+                      <td className="px-6 py-5">
                         <input
                           type="checkbox"
                           checked={selectedStations.has(station.name)}
                           onChange={() => toggleSelect(station.name)}
                           className="w-5 h-5 accent-blue-600 cursor-pointer"
                         />
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                            <MapPin className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-800">
+                              {station.name}
+                            </div>
+                            <div className="text-xs text-slate-400">
+                              {occupancyPercent}% occupancy
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 text-slate-600">
+                        {station.address || "—"}
+                      </td>
+                      <td className="px-6 py-5">
+                        <span className="font-semibold text-slate-800">
+                          {station.totalSpots}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5">
+                        <span className="font-semibold text-emerald-600">
+                          {station.freeSpots}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5">
+                        <span className="font-semibold text-red-600">
+                          {station.usedSpots}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full ${station.isEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${station.isEnabled ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`}
+                          />
+                          {station.isEnabled ? "Active" : "Disabled"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5 text-right space-x-3">
                         <button
                           onClick={() => openEditModal(station)}
-                          className="text-blue-500 hover:text-blue-600 transition-colors"
+                          className="text-blue-600 hover:text-blue-700 font-medium text-sm"
                         >
-                          <Pencil size={20} />
+                          Edit
                         </button>
                         <button
-                          onClick={() =>
-                            confirmDelete("single", {
-                              name: station.name,
-                              totalSpots: station.totalSpots,
-                            })
-                          }
-                          disabled={submitting}
-                          className="text-red-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                          onClick={() => confirmDisable(station)}
+                          disabled={isProcessing}
+                          className={`font-medium text-sm ${station.isEnabled ? "text-amber-600 hover:text-amber-700" : "text-emerald-600 hover:text-emerald-700"}`}
                         >
-                          <Trash2 size={20} />
+                          {station.isEnabled ? "Disable" : "Enable"}
                         </button>
-                      </div>
-                    </div>
-
-                    <div className="mt-8 grid grid-cols-2 gap-6">
-                      <div className="text-center">
-                        <div className="text-6xl font-bold text-slate-900 tracking-tighter">
-                          {station.totalSpots}
-                        </div>
-                        <div className="uppercase text-[10px] font-semibold tracking-[1px] text-slate-400 mt-1">
-                          Total Spots
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-6xl font-bold text-emerald-600 tracking-tighter">
-                          {station.freeSpots}
-                        </div>
-                        <div className="uppercase text-[10px] font-semibold tracking-[1px] text-emerald-500 mt-1">
-                          Available
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-8 pt-6 border-t flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="text-red-600 font-semibold text-lg">
-                          {station.usedSpots}
-                        </div>
-                        <div className="text-xs text-red-400 font-medium">
-                          OCCUPIED
-                        </div>
-                      </div>
-                      <div className="flex-1 mx-6 h-2 bg-slate-100 rounded-3xl overflow-hidden">
-                        <div
-                          className="h-2 bg-gradient-to-r from-red-400 to-orange-400 transition-all"
-                          style={{ width: `${occupancyPercent}%` }}
-                        ></div>
-                      </div>
-                      <span className="font-mono font-semibold text-slate-700">
-                        {occupancyPercent}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
-      {/* Add New Station Modal (unchanged) */}
+      {/* Add New Station Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl">
@@ -862,7 +903,7 @@ export default function LocationsView() {
         </div>
       )}
 
-      {/* EDIT & DELETE modals (unchanged) */}
+      {/* Edit Station Modal */}
       {showEditModal && editingStation && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl">
@@ -956,51 +997,85 @@ export default function LocationsView() {
         </div>
       )}
 
-      {showDeleteConfirm && deleteTarget && (
+      {/* Disable/Enable Confirmation Modal */}
+      {showDisableConfirm && disableTarget && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[10000] p-4">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl">
-            <div className="px-8 pt-8 pb-6 border-b flex items-center gap-3 text-red-600">
-              <i className="fas fa-exclamation-triangle text-3xl"></i>
+            <div
+              className={`px-8 pt-8 pb-6 border-b flex items-center gap-3 ${disableTarget.isEnabled ? "text-amber-600" : "text-emerald-600"}`}
+            >
+              {disableTarget.isEnabled ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-8 h-8"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-8 h-8"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              )}
               <h3 className="text-2xl font-semibold">
-                Confirm Permanent Deletion
+                {disableTarget.isEnabled ? "Disable Station" : "Enable Station"}
               </h3>
             </div>
             <div className="p-8 text-slate-700 text-lg">
               <p>
-                Are you sure you want to permanently delete this station and all
-                its spots?
+                {disableTarget.isEnabled
+                  ? `Are you sure you want to disable "${disableTarget.name}"? This will make all ${disableTarget.totalSpots} spot(s) unavailable for booking.`
+                  : `Are you sure you want to enable "${disableTarget.name}"? This will make all ${disableTarget.totalSpots} spot(s) available for booking.`}
               </p>
-              <p className="text-red-500 text-sm mt-4">
-                This action cannot be undone.
+              <p
+                className={`text-sm mt-4 ${disableTarget.isEnabled ? "text-amber-600" : "text-emerald-600"}`}
+              >
+                {disableTarget.isEnabled
+                  ? "You can re-enable it anytime."
+                  : "The station will be immediately available."}
               </p>
-              {isDeleting && (
-                <div className="mt-6">
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-2 bg-red-600 transition-all duration-300"
-                      style={{ width: `${deleteProgress}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1 text-center">
-                    Deleting… {deleteProgress}%
-                  </p>
-                </div>
-              )}
             </div>
             <div className="flex gap-4 px-8 py-6 border-t">
               <button
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={() => {
+                  setShowDisableConfirm(false);
+                  setDisableTarget(null);
+                }}
                 className="flex-1 py-5 text-slate-700 font-medium border border-slate-200 rounded-3xl hover:bg-slate-50 transition-all"
-                disabled={isDeleting}
+                disabled={isProcessing}
               >
                 Cancel
               </button>
               <button
-                onClick={executeDelete}
-                disabled={submitting || isDeleting}
-                className="flex-1 py-5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-3xl transition-all disabled:opacity-70"
+                onClick={() =>
+                  handleToggleStation(disableTarget, !disableTarget.isEnabled)
+                }
+                disabled={isProcessing}
+                className={`flex-1 py-5 text-white font-semibold rounded-3xl transition-all disabled:opacity-70 ${disableTarget.isEnabled ? "bg-amber-600 hover:bg-amber-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
               >
-                {isDeleting ? "Deleting…" : "Yes, Delete Permanently"}
+                {isProcessing
+                  ? "Processing..."
+                  : disableTarget.isEnabled
+                    ? "Disable Station"
+                    : "Enable Station"}
               </button>
             </div>
           </div>
@@ -1009,7 +1084,3 @@ export default function LocationsView() {
     </div>
   );
 }
-
-
-
-

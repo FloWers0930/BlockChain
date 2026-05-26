@@ -15,19 +15,20 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
     .toUpperCase();
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
       {/* Mobile toggle */}
       <div className="lg:hidden fixed top-4 left-4 z-50">
         <button
           onClick={toggleMobileMenu}
           aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-          className="w-12 h-12 bg-white/90 backdrop-blur-xl rounded-2xl shadow-premium flex items-center justify-center text-slate-700 hover:text-slate-900 transition-all duration-300"
+          className="w-11 h-11 bg-white border border-slate-100 shadow-sm rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 transition-all"
         >
           {mobileMenuOpen ? (
             <svg
-              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
               className="w-5 h-5"
               fill="none"
+              viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2}
             >
@@ -39,9 +40,10 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
             </svg>
           ) : (
             <svg
-              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
               className="w-5 h-5"
               fill="none"
+              viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2}
             >
@@ -57,7 +59,7 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
 
       {mobileMenuOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-30"
           onClick={closeMobileMenu}
         />
       )}
@@ -67,16 +69,15 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
         className={`
           fixed lg:static inset-y-0 left-0 z-40
           w-72 xl:w-80
-          bg-white/90 backdrop-blur-xl
-          border-r border-slate-200/50 shadow-premium
+          bg-white border-r border-slate-100
           flex flex-col
           transition-transform duration-300 ease-in-out
           ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
         {/* Logo */}
-        <div className="px-6 py-5 border-b border-slate-200/50 flex items-center gap-4 flex-shrink-0">
-          <div className="w-11 h-11 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-premium flex-shrink-0">
+        <div className="px-6 py-6 border-b border-slate-100 flex items-center gap-4 flex-shrink-0">
+          <div className="w-11 h-11 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 flex-shrink-0 overflow-hidden">
             <img
               src="/assets/star-removebg-preview.jpg"
               alt="Statio Nexus"
@@ -84,17 +85,17 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
             />
           </div>
           <div className="min-w-0">
-            <div className="text-xl font-bold text-blue-600 truncate">
+            <div className="text-lg font-bold text-slate-900 tracking-tight truncate">
               Statio Nexus
             </div>
-            <div className="text-xs text-slate-500 font-medium">
+            <div className="text-xs text-slate-400 font-medium">
               Smart Parking Platform
             </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -105,12 +106,12 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
                   closeMobileMenu();
                 }}
                 className={`
-                  w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl text-left
+                  w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left
                   transition-all duration-200 font-medium group
                   ${
                     item.active
-                      ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-premium"
-                      : "text-slate-700 hover:bg-slate-100 hover:text-slate-900 hover:translate-x-1"
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-200"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                   }
                 `}
               >
@@ -121,26 +122,25 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
                     ${
                       item.active
                         ? "bg-white/20 text-white"
-                        : "bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600"
+                        : "bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600"
                     }
                   `}
                 >
-                  {Icon && <Icon size={18} strokeWidth={2} />}
+                  {/* ✅ Rendered with className to support inline SVG components */}
+                  {Icon && <Icon className="w-5 h-5" />}
                 </div>
-                <span className="font-semibold truncate">{item.label}</span>
-                {item.active && (
-                  <div className="ml-auto w-2 h-2 bg-white rounded-full animate-pulse flex-shrink-0" />
-                )}
+                <span className="font-semibold text-sm truncate">
+                  {item.label}
+                </span>
               </button>
             );
           })}
         </nav>
 
-        {/* Bottom section - User info + Logout in bottom-left corner */}
-        <div className="p-4 border-t border-slate-200/50 flex-shrink-0 space-y-3">
-          {/* Minimal user info */}
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 rounded-2xl">
-            <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-amber-600 text-white rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0">
+        {/* Bottom section - User info + Logout */}
+        <div className="p-4 border-t border-slate-100 flex-shrink-0 space-y-3">
+          <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-2xl border border-slate-100">
+            <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-sm">
               {userInitial}
             </div>
             <div className="flex-1 min-w-0">
@@ -153,15 +153,15 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
             </div>
           </div>
 
-          {/* Logout Button - Clean, no outline, bottom-left corner */}
           <button
             onClick={logout}
-            className="w-full flex items-center justify-start gap-3 py-3 px-6 text-red-600 hover:bg-red-50 rounded-2xl font-semibold transition-all duration-200"
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 text-red-600 hover:bg-red-50 border border-transparent hover:border-red-100 rounded-2xl font-semibold text-sm transition-all duration-200"
           >
             <svg
-              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
               className="w-4 h-4"
               fill="none"
+              viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2}
             >
@@ -179,43 +179,39 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header */}
-        <header className="relative z-20 min-h-[4.5rem] bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 lg:px-8 flex items-center justify-between shadow-premium flex-shrink-0">
-          <div className="flex items-center gap-4">
-            <div className="w-1.5 h-10 bg-gradient-to-b from-blue-600 to-purple-600 rounded-full" />
+        <header className="relative z-20 h-20 bg-white border-b border-slate-100 px-6 lg:px-8 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-4 pl-12 lg:pl-0">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">
+              <h1 className="text-xl lg:text-2xl font-bold text-slate-900 leading-tight tracking-tight">
                 {title}
               </h1>
-              <p className="text-xs text-slate-500 font-medium hidden sm:block">
+              <p className="text-xs text-slate-400 font-medium hidden sm:block mt-0.5">
                 Statio Nexus Management Portal
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 lg:gap-5">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200/60 rounded-full">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-xs font-semibold text-green-700">
+          <div className="flex items-center gap-3 lg:gap-4">
+            <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-xs font-semibold text-emerald-700">
                 System Online
               </span>
             </div>
 
             <NotificationBell />
 
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl flex items-center justify-center text-base font-bold shadow-premium cursor-pointer hover:shadow-2xl transition-all duration-300 select-none">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-lg shadow-blue-200 cursor-pointer hover:shadow-xl transition-all duration-300 select-none">
               {userInitial}
             </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto">
           <div className="animate-fade-in">{children}</div>
         </main>
       </div>
     </div>
   );
 }
-
-
-

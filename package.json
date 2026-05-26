@@ -4,8 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run dev"
+    "dev:backend": "cd Server && npm run dev",
+    "dev:frontend": "cd Client && npm run dev",
+    "build": "npm run build:frontend",
+    "build:frontend": "cd Client && npm run build",
+    "start": "cd Server && npm run start",
+    "start:backend": "cd Server && npm run start",
+    "start:frontend": "cd Client && npm run preview"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.2.0"

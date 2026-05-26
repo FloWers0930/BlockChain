@@ -23,6 +23,12 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     hmr: { protocol: "ws", host: "localhost", port: 5173 },
+
+    // ✅ FIX: Allow Vite to serve files from the parent directory (root node_modules)
+    fs: {
+      allow: [".."],
+    },
+
     proxy: {
       "/api": {
         target: "http://localhost:5000",

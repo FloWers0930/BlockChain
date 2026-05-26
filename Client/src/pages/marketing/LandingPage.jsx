@@ -132,7 +132,22 @@ export default function LandingPage() {
               <div className="text-white">
                 <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-6 py-3 rounded-full text-sm font-semibold mb-6 border border-white/30">
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                  🚀 NOW LIVE AT CROSSROAD TANDANG SORA
+                  {/* ✅ Replaced Rocket Emoji with SVG */}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                  NOW LIVE AT CROSSROAD TANDANG SORA
                 </div>
 
                 <h1 className="text-5xl md:text-6xl font-bold leading-none tracking-tight mb-6">
@@ -148,7 +163,21 @@ export default function LandingPage() {
 
                 <div className="flex flex-col sm:flex-row gap-4 mb-14">
                   <button className="btn btn-primary text-lg px-8 py-4 flex items-center justify-center gap-3 shadow-2xl">
-                    <i className="fas fa-mobile-alt" />
+                    {/* ✅ Replaced FontAwesome with SVG */}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+                      />
+                    </svg>
                     Get the App — It's Free
                   </button>
                 </div>
@@ -214,12 +243,32 @@ export default function LandingPage() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-8">
+              {/* ✅ Replaced Bus Emoji with SVG */}
               <div
                 className="card p-8 text-center group hover:shadow-2xl animate-fade-in"
                 style={{ animationDelay: "0.2s" }}
               >
-                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-3xl group-hover:scale-110 transition-transform">
-                  🚌
+                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-9 h-9"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M8 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"
+                    />
+                  </svg>
                 </div>
                 <h3 className="text-subheading mb-4">Transport Terminal</h3>
                 <p className="text-body">
@@ -228,12 +277,26 @@ export default function LandingPage() {
                 </p>
               </div>
 
+              {/* ✅ Replaced Hotel Emoji with SVG */}
               <div
                 className="card p-8 text-center group hover:shadow-2xl animate-fade-in"
                 style={{ animationDelay: "0.4s" }}
               >
-                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center text-white text-3xl group-hover:scale-110 transition-transform">
-                  🏨
+                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-9 h-9"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                    />
+                  </svg>
                 </div>
                 <h3 className="text-subheading mb-4">Hotel Parking</h3>
                 <p className="text-body">
@@ -241,12 +304,26 @@ export default function LandingPage() {
                 </p>
               </div>
 
+              {/* ✅ Replaced Shopping Emoji with SVG */}
               <div
                 className="card p-8 text-center group hover:shadow-2xl animate-fade-in"
                 style={{ animationDelay: "0.6s" }}
               >
-                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-2xl flex items-center justify-center text-white text-3xl group-hover:scale-110 transition-transform">
-                  🛍️
+                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-2xl flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-9 h-9"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                    />
+                  </svg>
                 </div>
                 <h3 className="text-subheading mb-4">Commercial Spaces</h3>
                 <p className="text-body">
@@ -430,7 +507,3 @@ export default function LandingPage() {
     </>
   );
 }
-
-
-
-

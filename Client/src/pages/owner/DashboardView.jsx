@@ -272,7 +272,7 @@ export default function DashboardView() {
             </span>
             {refreshing && (
               <span className="text-xs font-medium text-indigo-500 flex items-center gap-1">
-                <i className="fas fa-spinner animate-spin" />
+                <RefreshCw size={14} className="animate-spin" />
                 Updating
               </span>
             )}
@@ -294,7 +294,20 @@ export default function DashboardView() {
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3 text-red-700">
-            <i className="fas fa-triangle-exclamation text-lg" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
             <span className="font-medium text-sm">{error}</span>
           </div>
           <button
@@ -362,7 +375,7 @@ export default function DashboardView() {
         <div className="lg:col-span-8 bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative">
           {refreshing && !initialLoading && (
             <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md shadow-sm px-3 py-1 rounded-2xl text-xs font-medium flex items-center gap-1.5 z-10">
-              <i className="fas fa-spinner animate-spin text-indigo-500" />
+              <RefreshCw size={14} className="animate-spin text-indigo-500" />
               Updating chart…
             </div>
           )}
@@ -371,7 +384,20 @@ export default function DashboardView() {
             <Skeleton className="h-72 w-full" />
           ) : revenueTrend.length === 0 ? (
             <div className="h-72 flex flex-col items-center justify-center text-slate-200">
-              <i className="fas fa-chart-line text-4xl mb-3" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-12 h-12 mb-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
+                />
+              </svg>
               <p className="text-sm text-slate-400">No trend data yet</p>
             </div>
           ) : (
@@ -501,7 +527,7 @@ export default function DashboardView() {
         <div className="lg:col-span-4 bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative">
           {refreshing && !initialLoading && (
             <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md shadow-sm px-3 py-1 rounded-2xl text-xs font-medium flex items-center gap-1.5 z-10">
-              <i className="fas fa-spinner animate-spin text-indigo-500" />
+              <RefreshCw size={14} className="animate-spin text-indigo-500" />
               Updating…
             </div>
           )}
@@ -526,7 +552,20 @@ export default function DashboardView() {
             </div>
           ) : topStations.length === 0 ? (
             <div className="h-48 flex flex-col items-center justify-center">
-              <i className="fas fa-store text-4xl text-slate-200 mb-3" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-12 h-12 text-slate-200 mb-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                />
+              </svg>
               <p className="text-sm text-slate-400">No station data yet</p>
             </div>
           ) : (
@@ -585,7 +624,7 @@ export default function DashboardView() {
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative">
           {refreshing && !initialLoading && (
             <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md shadow-sm px-3 py-1 rounded-2xl text-xs font-medium flex items-center gap-1.5 z-10">
-              <i className="fas fa-spinner animate-spin text-indigo-500" />
+              <RefreshCw size={14} className="animate-spin text-indigo-500" />
               Updating…
             </div>
           )}
@@ -644,7 +683,3 @@ export default function DashboardView() {
     </div>
   );
 }
-
-
-
-
