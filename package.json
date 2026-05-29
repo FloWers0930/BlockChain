@@ -13,9 +13,13 @@
     "start:frontend": "cd Client && npm run preview"
   },
   "dependencies": {
-    "@fortawesome/fontawesome-free": "^7.2.0"
+    "@fortawesome/fontawesome-free": "^7.2.0",
+    "dotenv": "^17.4.2",
+    "ethers": "^6.16.0"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "@nomicfoundation/hardhat-toolbox": "^6.1.2",
+    "concurrently": "^9.2.1",
+    "hardhat": "^2.22.0"
   }
 }

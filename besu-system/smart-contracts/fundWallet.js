@@ -4,12 +4,14 @@ const { ethers } = require("ethers");
 async function main() {
   const provider = new ethers.JsonRpcProvider(process.env.BESU_RPC_URL);
 
-  const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+  // Use genesis funded account as sender
+  const wallet = new ethers.Wallet(process.env.GENESIS_PRIVATE_KEY, provider);
 
   const recipient = process.env.MY_WALLET_ADDRESS;
-  const amount = ethers.parseEther("100"); // send 100 ETH
+  const amount = ethers.parseEther("100");
 
   console.log("Sending from:", wallet.address);
+  console.log("Sending to:", recipient);
 
   const tx = await wallet.sendTransaction({
     to: recipient,

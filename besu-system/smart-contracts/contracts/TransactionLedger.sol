@@ -2,6 +2,17 @@
 pragma solidity ^0.8.20;
 
 contract TransactionLedger {
+    address public owner;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not authorized");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender; // deployer wallet = your server wallet
+    }
+
     struct TransactionRecord {
         string referenceNumber;
         string transactionType;
@@ -22,12 +33,13 @@ contract TransactionLedger {
         uint256 timestamp
     );
 
+    // ✅ Only server wallet can record transactions
     function recordTransaction(
         string memory _referenceNumber,
         string memory _transactionType,
         uint256 _amount,
         string memory _description
-    ) public {
+    ) public onlyOwner {
         require(
             !transactions[_referenceNumber].exists,
             "Transaction already exists"
@@ -52,6 +64,7 @@ contract TransactionLedger {
         );
     }
 
+    // verifyTransaction stays public — anyone can read
     function verifyTransaction(
         string memory _referenceNumber
     )

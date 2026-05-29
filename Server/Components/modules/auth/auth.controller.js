@@ -5,6 +5,11 @@ const jwt = require("jsonwebtoken");
 const logger = require("../../config/logger.js");
 const tokenBlacklist = require("../../services/tokenBlacklistService.js");
 
+// ─── Password complexity regex (matches user.model.js validation) ─────────────
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+// ─── Token generators ─────────────────────────────────────────────────────────
 const generateToken = (user) =>
   jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "15m",
@@ -78,7 +83,7 @@ const login = async (req, res, next) => {
       email: user.email,
     });
 
-    const emitAuditLog = req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: user._id,
@@ -123,10 +128,12 @@ const changePassword = async (req, res, next) => {
       });
     }
 
-    if (newPassword.length < 8) {
+    // ✅ Explicit complexity check matching user.model.js validation
+    if (!PASSWORD_REGEX.test(newPassword)) {
       return res.status(400).json({
         success: false,
-        message: "New password must be at least 8 characters",
+        message:
+          "Password must be at least 8 characters and contain at least 1 uppercase, 1 lowercase, 1 number and 1 special character (@$!%*?&)",
       });
     }
 
@@ -148,6 +155,15 @@ const changePassword = async (req, res, next) => {
       });
     }
 
+    // ✅ Prevent reusing the same password
+    const isSamePassword = await user.matchPassword(newPassword);
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from current password",
+      });
+    }
+
     user.password = newPassword;
     user.mustChangePassword = false;
     await user.save();
@@ -157,7 +173,7 @@ const changePassword = async (req, res, next) => {
       role: user.role,
     });
 
-    const emitAuditLog = req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: user._id,
@@ -165,7 +181,7 @@ const changePassword = async (req, res, next) => {
         userRole: user.role,
         action: "password_changed",
         details: `User ${user.name || user.username} changed their password`,
-        isCritical: false,
+        isCritical: true,
       });
     }
 
@@ -208,13 +224,13 @@ const getMe = async (req, res, next) => {
 const logout = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
-    const { refreshToken } = req.body; // ✅ get refresh token from body
+    const { refreshToken } = req.body;
 
     // Blacklist access token
     if (token) {
       try {
         const decoded = jwt.decode(token);
-        if (decoded && decoded.exp) {
+        if (decoded?.exp) {
           tokenBlacklist.add(token, decoded.exp);
         }
       } catch (e) {
@@ -224,11 +240,11 @@ const logout = async (req, res, next) => {
       }
     }
 
-    // ✅ Blacklist refresh token too
+    // Blacklist refresh token
     if (refreshToken) {
       try {
         const decoded = jwt.decode(refreshToken);
-        if (decoded && decoded.exp) {
+        if (decoded?.exp) {
           tokenBlacklist.add(refreshToken, decoded.exp);
         }
       } catch (e) {
@@ -243,7 +259,7 @@ const logout = async (req, res, next) => {
       role: req.user.role,
     });
 
-    const emitAuditLog = req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: req.user.id,
@@ -281,7 +297,6 @@ const refreshToken = async (req, res, next) => {
       });
     }
 
-    // ✅ Verify with JWT_REFRESH_SECRET
     const decoded = jwt.verify(
       incomingRefreshToken,
       process.env.JWT_REFRESH_SECRET,
@@ -297,7 +312,7 @@ const refreshToken = async (req, res, next) => {
       });
     }
 
-    // ✅ Blacklist old refresh token
+    // Blacklist old refresh token
     try {
       tokenBlacklist.add(incomingRefreshToken, decoded.exp);
     } catch (e) {
@@ -307,14 +322,14 @@ const refreshToken = async (req, res, next) => {
     }
 
     const newToken = generateToken(user);
-    const newRefreshToken = generateRefreshToken(user); // ✅ rotate refresh token
+    const newRefreshToken = generateRefreshToken(user);
 
     logger.info("✅ Token refreshed successfully", {
       userId: user._id,
       role: user.role,
     });
 
-    const emitAuditLog = req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: user._id,
@@ -329,7 +344,7 @@ const refreshToken = async (req, res, next) => {
     res.json({
       success: true,
       token: newToken,
-      refreshToken: newRefreshToken, // ✅ return new refresh token
+      refreshToken: newRefreshToken,
       user: {
         id: user._id,
         role: user.role,

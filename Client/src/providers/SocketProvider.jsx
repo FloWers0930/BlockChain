@@ -32,8 +32,8 @@ export function SocketProvider({ children }) {
     // Disconnect and clean up if user logs out
     if (!isAuthenticated || !user?.id) {
       if (socketRef.current) {
-        if (process.env.NODE_ENV === "development") {
-          console.log("[Socket] Disconnecting due to logout");
+        if (import.meta.env.DEV) {
+          logger.debug("[Socket] Disconnecting due to logout");
         }
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -52,10 +52,8 @@ export function SocketProvider({ children }) {
       import.meta.env.VITE_API_URL?.replace("/api", "") || // strip /api if needed
       "http://localhost:5000";
 
-    if (process.env.NODE_ENV === "development") {
-      console.log(
-        `[Socket] Connecting to ${socketUrl} as user:${user.id} (${user.role})`,
-      );
+    if (import.meta.env.DEV) {
+      // Socket connecting to server
     }
 
     setConnectionStatus("connecting");
@@ -90,8 +88,8 @@ export function SocketProvider({ children }) {
       newSocket.emit("join", `user:${user.id}`);
       if (user.role === "owner" || user.role === "admin") {
         newSocket.emit("join", `owner:${user.id}`);
-        if (process.env.NODE_ENV === "development") {
-          console.log(`[Socket] Joined owner room: owner:${user.id}`);
+        if (import.meta.env.DEV) {
+          // Joined owner room
         }
       }
     };

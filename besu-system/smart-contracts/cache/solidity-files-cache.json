@@ -1,0 +1,41 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "C:\\Users\\Lawrenz\\Downloads\\statio-nexus\\statio-nexus\\besu-system\\smart-contracts\\contracts\\TransactionLedger.sol": {
+      "lastModificationDate": 1779938672495,
+      "contentHash": "ec0ff06ac559b73ec7d2e6361617447f",
+      "sourceName": "contracts/TransactionLedger.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "TransactionLedger"
+      ]
+    }
+  }
+}

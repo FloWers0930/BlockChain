@@ -1,6 +1,4 @@
 // backend/src/modules/owner/owner.controller.js
-// Owner controller - Station spots, staff, OCR, 2FA, password, settings, bookings
-
 const mongoose = require("mongoose");
 const { createWorker } = require("tesseract.js");
 const { fromBuffer } = require("pdf2pic");
@@ -12,8 +10,13 @@ const qrcode = require("qrcode");
 const StationSpot = require("../shared/stationSpot.model.js");
 const Booking = require("../shared/booking.model.js");
 const Staff = require("../shared/staff.model.js");
+const User = require("../shared/user.model.js");
 
 const logger = require("../../config/logger.js");
+
+// ─── Password complexity regex (matches user.model.js) ────────────────────────
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 // ==================== CIRCUIT BREAKER ====================
 class CircuitBreaker {
@@ -62,11 +65,6 @@ const ocrCircuitBreaker = new CircuitBreaker("OCR");
 const sendErrorResponse = (res, status, message) => {
   return res.status(status).json({ success: false, message });
 };
-
-function extractSuggestedFields(text, category) {
-  const fields = {};
-  return fields;
-}
 
 // ==================== PERFORM OCR ====================
 const performOCR = async (req, res) => {
@@ -145,7 +143,6 @@ const performOCR = async (req, res) => {
 
     const extractedText = data.text.trim();
     const confidence = Math.round(data.confidence || 0);
-    const suggestedFields = extractSuggestedFields(extractedText, category);
 
     logger.info(`✅ OCR completed for ${filename}`, { confidence });
 
@@ -153,7 +150,6 @@ const performOCR = async (req, res) => {
       success: true,
       extractedText,
       confidence,
-      suggestedFields,
     });
   } catch (error) {
     logger.error("❌ OCR failed", { error: error.message, filename });
@@ -189,29 +185,38 @@ const changePassword = async (req, res, next) => {
         "Current and new password are required",
       );
     }
-    if (newPassword.length < 8) {
+
+    if (!PASSWORD_REGEX.test(newPassword)) {
       return sendErrorResponse(
         res,
         400,
-        "New password must be at least 8 characters long",
+        "Password must be at least 8 characters and contain at least 1 uppercase, 1 lowercase, 1 number and 1 special character (@$!%*?&)",
       );
     }
 
-    const User = mongoose.model("User");
-    const user = await User.findById(ownerId);
+    const user = await User.findById(ownerId).select("+password");
     if (!user) return sendErrorResponse(res, 404, "User not found");
 
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch)
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
       return sendErrorResponse(res, 400, "Current password is incorrect");
+    }
 
-    const salt = await bcrypt.genSalt(12);
-    user.password = await bcrypt.hash(newPassword, salt);
+    const isSamePassword = await user.matchPassword(newPassword);
+    if (isSamePassword) {
+      return sendErrorResponse(
+        res,
+        400,
+        "New password must be different from current password",
+      );
+    }
+
+    user.password = newPassword;
     await user.save();
 
     logger.info(`✅ Password changed for owner`, { userId: ownerId });
 
-    const emitAuditLog = req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: req.user.id,
@@ -233,7 +238,6 @@ const changePassword = async (req, res, next) => {
 // ==================== TWO-FACTOR AUTHENTICATION ====================
 const enableTwoFactor = async (req, res, next) => {
   try {
-    const User = mongoose.model("User");
     const user = await User.findById(req.user.id);
     if (!user) return sendErrorResponse(res, 404, "User not found");
 
@@ -263,7 +267,6 @@ const enableTwoFactor = async (req, res, next) => {
 const verifyTwoFactor = async (req, res, next) => {
   try {
     const { token } = req.body;
-    const User = mongoose.model("User");
     const user = await User.findById(req.user.id);
 
     if (!user || !user.twoFactorSecret) {
@@ -296,7 +299,6 @@ const verifyTwoFactor = async (req, res, next) => {
 
 const disableTwoFactor = async (req, res, next) => {
   try {
-    const User = mongoose.model("User");
     const user = await User.findById(req.user.id);
     if (!user) return sendErrorResponse(res, 404, "User not found");
 
@@ -316,40 +318,32 @@ const disableTwoFactor = async (req, res, next) => {
 const getStaff = async (req, res, next) => {
   try {
     const ownerId = req.user.id;
-    const User = mongoose.model("User");
-    const StationSpot = mongoose.model("StationSpot");
 
-    // ── 1. Fetch station staff (attendants, cashiers, etc.) ─────────────────
-    // Exclude soft-deleted records and ensure status field exists
     const stationStaff = await Staff.find({
       owner: ownerId,
-      deletedAt: { $exists: false }, // Only active (non-deleted) staff
+      deletedAt: { $exists: false },
     })
       .select("-passwordHash -salt")
       .lean()
       .sort({ createdAt: -1 });
 
-    // ── 2. Fetch platform admins/managers (excluding the owner themselves) ───
     const platformUsers = await User.find({
       role: { $in: ["admin", "manager"] },
-      _id: { $ne: ownerId }, // ✅ Exclude the requesting owner from their own list
+      _id: { $ne: ownerId },
     })
       .select("-password -passwordHash -salt -twoFactorSecret")
       .lean()
       .sort({ createdAt: -1 });
 
-    // ── 3. Fetch available stations for invite modal ────────────────────────
     const availableStations = await StationSpot.find({
       owner: ownerId,
-      status: { $ne: "deleted" }, // Only active stations
+      deletedAt: { $exists: false },
     })
       .select("_id name code location")
       .lean()
       .sort({ name: 1 });
 
-    // ── 4. Combine and normalize for frontend ───────────────────────────────
     const combined = [
-      // Platform users (admins/managers)
       ...platformUsers.map((u) => ({
         _id: u._id,
         name: u.name,
@@ -358,30 +352,25 @@ const getStaff = async (req, res, next) => {
         phone: u.phone,
         role: u.role,
         category: u.role.toUpperCase(),
-        // ✅ Map isActive to status string for frontend consistency
         status: u.isActive !== false ? "active" : "inactive",
         createdAt: u.createdAt,
-        lastActive: u.lastLogin || u.updatedAt, // Normalize field name
+        lastActive: u.lastLogin || u.updatedAt,
         isPlatform: true,
       })),
-      // Station staff
       ...stationStaff.map((s) => ({
         ...s,
         category: (s.role || "staff").toUpperCase(),
-        // ✅ Ensure status is always a valid string (default to "active")
         status: s.status || "active",
         isActive: !s.deletedAt,
         isPlatform: false,
-        // Normalize field names for frontend
         lastActive: s.lastLogin || s.updatedAt,
       })),
     ];
 
-    // ── 5. Send response ────────────────────────────────────────────────────
     res.json({
       success: true,
       staff: combined,
-      availableStations, // ✅ Include for frontend invite modal
+      availableStations,
     });
   } catch (error) {
     logger.error("❌ Failed to fetch staff list", {
@@ -451,7 +440,7 @@ const createStaff = async (req, res, next) => {
       staffId: staff._id,
     });
 
-    const emitAuditLog = req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: req.user.id,
@@ -464,7 +453,7 @@ const createStaff = async (req, res, next) => {
       });
     }
 
-    const io = req.app.get("io");
+    const io = req.app.locals.io;
     if (io) io.emit("staffCreated", { staffId: staff._id });
 
     res.status(201).json({ success: true, staff });
@@ -481,9 +470,33 @@ const updateStaff = async (req, res, next) => {
     const ownerId = req.user.id;
     const { id } = req.params;
 
+    const {
+      name,
+      phone,
+      role,
+      address,
+      status,
+      gender,
+      dateOfBirth,
+      emergencyContactName,
+      emergencyContactPhone,
+    } = req.body;
+
+    const allowedUpdates = {
+      ...(name !== undefined && { name }),
+      ...(phone !== undefined && { phone }),
+      ...(role !== undefined && { role }),
+      ...(address !== undefined && { address }),
+      ...(status !== undefined && { status }),
+      ...(gender !== undefined && { gender }),
+      ...(dateOfBirth !== undefined && { dateOfBirth }),
+      ...(emergencyContactName !== undefined && { emergencyContactName }),
+      ...(emergencyContactPhone !== undefined && { emergencyContactPhone }),
+    };
+
     const staff = await Staff.findOneAndUpdate(
-      { _id: id, owner: ownerId },
-      req.body,
+      { _id: id, owner: ownerId, deletedAt: { $exists: false } },
+      allowedUpdates,
       { new: true, runValidators: true },
     ).select("-passwordHash -salt");
 
@@ -491,7 +504,7 @@ const updateStaff = async (req, res, next) => {
 
     logger.info(`✅ Staff updated: ${staff.name}`, { staffId: id, ownerId });
 
-    const emitAuditLog = req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: req.user.id,
@@ -503,7 +516,7 @@ const updateStaff = async (req, res, next) => {
       });
     }
 
-    const io = req.app.get("io");
+    const io = req.app.locals.io;
     if (io) io.emit("staffUpdated", { staffId: staff._id });
 
     res.json({ success: true, staff });
@@ -530,7 +543,7 @@ const deleteStaff = async (req, res, next) => {
       ownerId,
     });
 
-    const emitAuditLog = req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: req.user.id,
@@ -542,7 +555,7 @@ const deleteStaff = async (req, res, next) => {
       });
     }
 
-    const io = req.app.get("io");
+    const io = req.app.locals.io;
     if (io) io.emit("staffDeleted", { staffId: staff._id });
 
     res.json({ success: true, message: "Staff deactivated successfully" });
@@ -555,16 +568,33 @@ const deleteStaff = async (req, res, next) => {
 const getOwnerSpots = async (req, res, next) => {
   try {
     const ownerId = req.user.id;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 100;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
     const skip = (page - 1) * limit;
 
-    const spots = await StationSpot.find({ owner: ownerId })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    const [spots, total] = await Promise.all([
+      // ✅ Only fetch non-deleted spots
+      StationSpot.find({ owner: ownerId, deletedAt: { $exists: false } })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      StationSpot.countDocuments({
+        owner: ownerId,
+        deletedAt: { $exists: false },
+      }),
+    ]);
 
-    res.json({ success: true, count: spots.length, spots });
+    res.json({
+      success: true,
+      count: spots.length,
+      spots,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -584,12 +614,9 @@ const createSpot = async (req, res, next) => {
     } = req.body;
 
     const count = parseInt(totalSpots) || 1;
-    // Safely retrieve audit logger & socket.io instance
-    const emitAuditLog =
-      req.app.locals?.emitAuditLog || req.app.get("emitAuditLog");
-    const io = req.app.locals?.io || req.app.get("io");
+    const emitAuditLog = req.app.locals?.emitAuditLog;
+    const io = req.app.locals?.io;
 
-    // ✅ BATCH CREATION (totalSpots > 1)
     if (count > 1) {
       const spots = Array.from({ length: count }, (_, i) => ({
         owner: ownerId,
@@ -599,18 +626,18 @@ const createSpot = async (req, res, next) => {
         zone: zone?.trim() || "General",
         hourlyRate: parseFloat(hourlyRate) || 50,
         status,
+        isEnabled: true,
       }));
 
       const createdSpots = await StationSpot.insertMany(spots);
 
-      // 🔒 RELIABLE AUDIT LOGGING
       if (typeof emitAuditLog === "function") {
         try {
           await emitAuditLog({
             user: ownerId,
             userName: req.user.name || req.user.username || "Owner",
             userRole: req.user.role || "owner",
-            action: "spot_created", // ✅ FIXED: Matches Audit model enum
+            action: "spot_created",
             details: `Created station "${location}" with ${count} spot(s) at ${address}`,
             newValue: {
               location: location?.trim(),
@@ -621,17 +648,11 @@ const createSpot = async (req, res, next) => {
             },
             isCritical: false,
           });
-          console.log(
-            `✅ [AUDIT LOGGED] Station "${location}" created with ${count} spots`,
-          );
         } catch (auditErr) {
-          console.error(
-            `❌ [AUDIT ERROR] Failed to log station creation:`,
-            auditErr.message,
-          );
+          logger.error("Failed to log station creation", {
+            error: auditErr.message,
+          });
         }
-      } else {
-        console.warn("⚠️ [AUDIT] emitAuditLog function not found on req.app");
       }
 
       if (io && typeof io.emit === "function") {
@@ -651,7 +672,6 @@ const createSpot = async (req, res, next) => {
       });
     }
 
-    // ✅ SINGLE SPOT CREATION (backward compatible)
     const spot = await StationSpot.create({
       ...req.body,
       owner: ownerId,
@@ -660,6 +680,7 @@ const createSpot = async (req, res, next) => {
       address: address?.trim(),
       zone: zone?.trim() || "General",
       hourlyRate: parseFloat(hourlyRate) || 50,
+      isEnabled: true,
     });
 
     if (typeof emitAuditLog === "function") {
@@ -673,9 +694,10 @@ const createSpot = async (req, res, next) => {
           newValue: { spotNumber: spot.spotNumber, location: spot.location },
           isCritical: false,
         });
-        console.log(`✅ [AUDIT LOGGED] Spot ${spot.spotNumber} created`);
       } catch (auditErr) {
-        console.error(`❌ [AUDIT ERROR] Failed to log spot:`, auditErr.message);
+        logger.error("Failed to log spot creation", {
+          error: auditErr.message,
+        });
       }
     }
 
@@ -695,9 +717,22 @@ const updateSpot = async (req, res, next) => {
     const ownerId = req.user.id;
     const { id } = req.params;
 
+    // ✅ Whitelist allowed fields for spots (Security)
+    const { location, address, zone, hourlyRate, status, isEnabled } = req.body;
+
+    const allowedUpdates = {
+      ...(location !== undefined && { location: location.trim() }),
+      ...(address !== undefined && { address: address.trim() }),
+      ...(zone !== undefined && { zone: zone.trim() || "General" }),
+      ...(hourlyRate !== undefined && { hourlyRate: parseFloat(hourlyRate) }),
+      ...(status !== undefined && { status }),
+      ...(isEnabled !== undefined && { isEnabled }),
+    };
+
+    // ✅ Prevent updating soft-deleted spots
     const spot = await StationSpot.findOneAndUpdate(
-      { _id: id, owner: ownerId },
-      req.body,
+      { _id: id, owner: ownerId, deletedAt: { $exists: false } },
+      allowedUpdates,
       { new: true, runValidators: true },
     );
 
@@ -708,7 +743,7 @@ const updateSpot = async (req, res, next) => {
       ownerId,
     });
 
-    const emitAuditLog = req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: req.user.id,
@@ -720,7 +755,7 @@ const updateSpot = async (req, res, next) => {
       });
     }
 
-    const io = req.app.get("io");
+    const io = req.app.locals.io;
     if (io) io.emit("spotUpdated", { spot });
 
     res.json({ success: true, spot });
@@ -734,30 +769,32 @@ const deleteSpot = async (req, res, next) => {
     const ownerId = req.user.id;
     const { id } = req.params;
 
-    const spot = await StationSpot.findOneAndDelete({
-      _id: id,
-      owner: ownerId,
-    });
+    const spot = await StationSpot.findOneAndUpdate(
+      { _id: id, owner: ownerId, deletedAt: { $exists: false } },
+      { deletedAt: new Date(), status: "deleted" },
+      { new: true },
+    );
+
     if (!spot) return sendErrorResponse(res, 404, "Station spot not found");
 
-    logger.info(`✅ Station spot deleted: ${spot.spotNumber}`, {
+    logger.info(`✅ Station spot soft-deleted: ${spot.spotNumber}`, {
       spotId: id,
       ownerId,
     });
 
-    const emitAuditLog = req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: req.user.id,
         userName: req.user.name,
         userRole: req.user.role,
         action: "spot_deleted",
-        details: `Deleted station spot ${spot.spotNumber}`,
+        details: `Soft-deleted station spot ${spot.spotNumber}`,
         isCritical: false,
       });
     }
 
-    const io = req.app.get("io");
+    const io = req.app.locals.io;
     if (io) io.emit("spotDeleted", { spotId: id });
 
     res.json({ success: true, message: "Station spot deleted" });
@@ -770,50 +807,84 @@ const deleteSpot = async (req, res, next) => {
 const getOwnerBookings = async (req, res, next) => {
   try {
     const ownerId = req.user.id;
-    const limit = parseInt(req.query.limit) || 300;
 
-    const bookings = await Booking.aggregate([
-      {
-        $lookup: {
-          from: "stationspots",
-          localField: "spot",
-          foreignField: "_id",
-          as: "spot",
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
+
+    const [bookings, total] = await Promise.all([
+      Booking.aggregate([
+        {
+          $lookup: {
+            from: "stationspots",
+            localField: "spot",
+            foreignField: "_id",
+            as: "spot",
+          },
         },
-      },
-      { $unwind: "$spot" },
-      {
-        $match: {
-          "spot.owner": new mongoose.Types.ObjectId(ownerId),
+        { $unwind: "$spot" },
+        {
+          $match: {
+            "spot.owner": new mongoose.Types.ObjectId(ownerId),
+            "spot.deletedAt": { $exists: false }, // Ignore deleted spots
+          },
         },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "user",
-          foreignField: "_id",
-          as: "user",
+        {
+          $lookup: {
+            from: "users",
+            localField: "user",
+            foreignField: "_id",
+            as: "user",
+          },
         },
-      },
-      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          user: { name: 1, email: 1 },
-          spot: { spotNumber: 1, location: 1 },
-          status: 1,
-          startTime: 1,
-          endTime: 1,
-          totalCost: 1,
-          paymentStatus: 1,
-          createdAt: 1,
-          updatedAt: 1,
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            user: { name: 1, email: 1 },
+            spot: { spotNumber: 1, location: 1 },
+            status: 1,
+            startTime: 1,
+            endTime: 1,
+            totalCost: 1,
+            paymentStatus: 1,
+            createdAt: 1,
+            updatedAt: 1,
+          },
         },
-      },
-      { $sort: { createdAt: -1 } },
-      { $limit: limit },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+      ]),
+      Booking.aggregate([
+        {
+          $lookup: {
+            from: "stationspots",
+            localField: "spot",
+            foreignField: "_id",
+            as: "spot",
+          },
+        },
+        { $unwind: "$spot" },
+        {
+          $match: {
+            "spot.owner": new mongoose.Types.ObjectId(ownerId),
+            "spot.deletedAt": { $exists: false },
+          },
+        },
+        { $count: "total" },
+      ]),
     ]);
 
-    res.json({ success: true, bookings });
+    res.json({
+      success: true,
+      bookings,
+      pagination: {
+        total: total[0]?.total || 0,
+        page,
+        limit,
+        totalPages: Math.ceil((total[0]?.total || 0) / limit),
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -822,10 +893,7 @@ const getOwnerBookings = async (req, res, next) => {
 // ==================== SETTINGS ====================
 const getOwnerSettings = async (req, res, next) => {
   try {
-    const user = await mongoose
-      .model("User")
-      .findById(req.user.id)
-      .select("settings");
+    const user = await User.findById(req.user.id).select("settings");
     res.json({ success: true, settings: user?.settings || {} });
   } catch (error) {
     next(error);
@@ -834,18 +902,15 @@ const getOwnerSettings = async (req, res, next) => {
 
 const updateOwnerSettings = async (req, res, next) => {
   try {
-    const user = await mongoose
-      .model("User")
-      .findByIdAndUpdate(
-        req.user.id,
-        { $set: { settings: req.body } },
-        { new: true, runValidators: true },
-      )
-      .select("settings");
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { settings: req.body } },
+      { new: true, runValidators: true },
+    ).select("settings");
 
     logger.info(`✅ Owner settings updated`, { userId: req.user.id });
 
-    const emitAuditLog = req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: req.user.id,

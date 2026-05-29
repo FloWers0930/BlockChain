@@ -1,297 +1,264 @@
 // src/components/dashboard/owner/SettingsView.jsx
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import api from "@api/axios";
-import { useSocket } from "@providers/SocketProvider";
-import { useAuth } from "@providers/AuthProvider";
+import { getMe } from "@api/authApi";
+import {
+  User,
+  Settings,
+  Save,
+  Loader,
+  CheckCircle,
+  AlertTriangle,
+  Mail,
+  Phone,
+  Clock,
+  DollarSign,
+  Bell,
+  Camera,
+  ChevronRight,
+} from "lucide-react";
 
 export default function SettingsView() {
-  const { user } = useAuth();
-  const { socket } = useSocket();
-
-  const [settings, setSettings] = useState({
-    businessName: "",
-    taxId: "",
-    address: "",
-    emailAlerts: true,
-    smsNotifications: true,
-    marketingEmails: false,
-    twoFactorEnabled: false,
-  });
-
-  // ── Section loading + error states ───────────────────────────────────────
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState("profile");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [notification, setNotification] = useState("");
   const [error, setError] = useState(null);
 
-  const [saving, setSaving] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [notification, setNotification] = useState(null);
+  // Profile settings
+  const [profileData, setProfileData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    timezone: "Asia/Manila",
+    profileImage: null,
+  });
 
-  // ── Password Change Form State ───────────────────────────────────────────
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordFeedback, setPasswordFeedback] = useState(null);
-  const [changingPassword, setChangingPassword] = useState(false);
+  // System settings
+  const [systemSettings, setSystemSettings] = useState({
+    businessHours: {
+      enabled: true,
+      open: "08:00",
+      close: "22:00",
+      days: [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ],
+    },
+    bookingSettings: {
+      maxAdvanceBooking: 30,
+      minBookingDuration: 1,
+      autoConfirmBookings: true,
+      allowPartialHours: true,
+    },
+    notifications: {
+      emailNewBooking: true,
+      emailBookingCancel: true,
+      smsNewBooking: false,
+      pushNotifications: true,
+    },
+    paymentSettings: {
+      currency: "PHP",
+      autoInvoice: true,
+      paymentReminder: 24,
+    },
+  });
 
-  // ── Real-time clock state ───────────────────────────────────────────────
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [originalData, setOriginalData] = useState({
+    profile: null,
+    system: null,
+  });
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const formatTime = (date) => {
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    });
-  };
-
-  const fetchSettings = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setError(null);
+  // Fetch current settings
+  const fetchSettings = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
     try {
-      const { data } = await api.get("/owner/settings");
-      if (data.success) {
-        const settingsData = data.settings || {};
-        setSettings({
-          businessName: settingsData.businessName || "",
-          taxId: settingsData.taxId || "",
-          address: settingsData.address || "",
-          emailAlerts:
-            settingsData.emailAlerts !== undefined
-              ? settingsData.emailAlerts
-              : true,
-          smsNotifications:
-            settingsData.smsNotifications !== undefined
-              ? settingsData.smsNotifications
-              : true,
-          marketingEmails:
-            settingsData.marketingEmails !== undefined
-              ? settingsData.marketingEmails
-              : false,
-          twoFactorEnabled:
-            settingsData.twoFactorEnabled !== undefined
-              ? settingsData.twoFactorEnabled
-              : false,
-        });
+      // Use your getMe function from authApi (handles token refresh automatically)
+      const userData = await getMe();
+      if (!userData) {
+        throw new Error("Failed to fetch user data");
       }
-      setError(null);
+
+      // Fetch system settings using your axios instance (handles CSRF + token refresh)
+      const settingsRes = await api.get("/owner/settings");
+      const settings = settingsRes.data?.settings || {};
+
+      const profile = {
+        name: userData.name || "",
+        email: userData.email || "",
+        phone: userData.phone || "",
+        timezone: settings.timezone || "Asia/Manila",
+        profileImage: userData.profileImage || null,
+      };
+
+      const system = {
+        businessHours: {
+          enabled: settings.businessHours?.enabled ?? true,
+          open: settings.businessHours?.open || "08:00",
+          close: settings.businessHours?.close || "22:00",
+          days: settings.businessHours?.days || [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ],
+        },
+        bookingSettings: {
+          maxAdvanceBooking: settings.bookingSettings?.maxAdvanceBooking || 30,
+          minBookingDuration: settings.bookingSettings?.minBookingDuration || 1,
+          autoConfirmBookings:
+            settings.bookingSettings?.autoConfirmBookings ?? true,
+          allowPartialHours:
+            settings.bookingSettings?.allowPartialHours ?? true,
+        },
+        notifications: {
+          emailNewBooking: settings.notifications?.emailNewBooking ?? true,
+          emailBookingCancel:
+            settings.notifications?.emailBookingCancel ?? true,
+          smsNewBooking: settings.notifications?.smsNewBooking ?? false,
+          pushNotifications: settings.notifications?.pushNotifications ?? true,
+        },
+        paymentSettings: {
+          currency: settings.paymentSettings?.currency || "PHP",
+          autoInvoice: settings.paymentSettings?.autoInvoice ?? true,
+          paymentReminder: settings.paymentSettings?.paymentReminder || 24,
+        },
+      };
+
+      setProfileData(profile);
+      setSystemSettings(system);
+      setOriginalData({ profile, system });
     } catch (err) {
-      if (process.env.NODE_ENV === "development") console.error(err);
-      const errorMsg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to load settings. Please check your connection and try again.";
-      setError(errorMsg);
+      if (import.meta.env.DEV) {
+        console.error("[Settings] Failed to fetch settings:", err);
+      }
+      setError("Failed to load settings. Please try again.");
     } finally {
-      setInitialLoading(false);
-      setRefreshing(false);
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchSettings(false);
+    fetchSettings();
   }, [fetchSettings]);
 
-  useEffect(() => {
-    if (!socket) return;
-    const handleUpdate = () => fetchSettings(true);
-    socket.on("settingsUpdated", handleUpdate);
-    return () => socket.off("settingsUpdated", handleUpdate);
-  }, [socket, fetchSettings]);
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setSettings((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
-
-  const handleSave = async () => {
+  // Save profile settings
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
     setSaving(true);
+
     try {
-      const { data } = await api.put("/owner/settings", settings);
-      if (data.success) {
-        setNotification({
-          type: "success",
-          text: "Settings saved successfully",
-        });
-        setTimeout(() => setNotification(null), 4000);
-      }
-    } catch (err) {
-      setNotification({
-        type: "error",
-        text: err.response?.data?.message || "Failed to save settings",
+      await api.put("/auth/profile", {
+        name: profileData.name,
+        phone: profileData.phone,
       });
-      setTimeout(() => setNotification(null), 4000);
+
+      setOriginalData((prev) => ({
+        ...prev,
+        profile: { ...profileData },
+      }));
+
+      showNotification("✅ Profile updated successfully!");
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error("[Settings] Failed to save profile:", err);
+      }
+      showNotification("⚠️ Failed to update profile", "error");
     } finally {
       setSaving(false);
     }
   };
 
-  const openPasswordModal = () => {
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setPasswordFeedback(null);
-    setShowPasswordModal(true);
-  };
-
-  const handlePasswordChange = async (e) => {
+  // Save system settings
+  const handleSaveSystem = async (e) => {
     e.preventDefault();
-    if (changingPassword) return;
+    setSaving(true);
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setNotification({ type: "error", text: "All fields are required" });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setNotification({ type: "error", text: "New passwords do not match" });
-      return;
-    }
-    if (newPassword.length < 8) {
-      setNotification({
-        type: "error",
-        text: "New password must be at least 8 characters",
-      });
-      return;
-    }
-
-    setChangingPassword(true);
     try {
-      const { data } = await api.post("/owner/change-password", {
-        currentPassword,
-        newPassword,
-      });
-      if (data.success) {
-        setNotification({
-          type: "success",
-          text: "Password updated successfully",
-        });
-        setTimeout(() => setNotification(null), 4000);
-        setShowPasswordModal(false);
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-      }
+      await api.put("/owner/settings", systemSettings);
+
+      setOriginalData((prev) => ({
+        ...prev,
+        system: { ...systemSettings },
+      }));
+
+      showNotification("✅ Settings saved successfully!");
     } catch (err) {
-      setNotification({
-        type: "error",
-        text: err.response?.data?.message || "Failed to update password",
-      });
-      setTimeout(() => setNotification(null), 4000);
-    } finally {
-      setChangingPassword(false);
-    }
-  };
-
-  const handlePasswordInput = async (e) => {
-    const { name, value } = e.target;
-    if (name === "newPassword") {
-      setNewPassword(value);
-      if (value) {
-        const { default: zxcvbn } = await import("zxcvbn");
-        setPasswordFeedback(zxcvbn(value));
-      } else {
-        setPasswordFeedback(null);
+      if (import.meta.env.DEV) {
+        console.error("[Settings] Failed to save settings:", err);
       }
-    } else if (name === "confirmPassword") {
-      setConfirmPassword(value);
-    } else if (name === "currentPassword") {
-      setCurrentPassword(value);
-    }
-  };
-
-  const handleExportReports = async () => {
-    setExporting(true);
-    try {
-      const { data } = await api.get("/owner/bookings");
-      const csvRows = [
-        ["Date", "Station", "Spot Number", "Customer", "Amount", "Status"],
-        ...data.bookings.map((b) => [
-          new Date(b.createdAt).toLocaleDateString(),
-          b.spot?.location || "-",
-          b.spot?.spotNumber || "-",
-          b.user?.name || "Guest",
-          `₱${b.totalCost}`,
-          b.paymentStatus?.toUpperCase() || "PENDING",
-        ]),
-      ];
-      const csvContent = csvRows.map((row) => row.join(",")).join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `revenue-report-${new Date().toISOString().slice(0, 10)}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-      setNotification({
-        type: "success",
-        text: "Reports exported successfully",
-      });
-      setTimeout(() => setNotification(null), 4000);
-    } catch (err) {
-      setNotification({ type: "error", text: "Failed to export reports" });
-      setTimeout(() => setNotification(null), 4000);
+      showNotification("⚠️ Failed to save settings", "error");
     } finally {
-      setExporting(false);
+      setSaving(false);
     }
   };
 
-  const handleBackup = async () => {
-    setNotification({ type: "info", text: "Starting database backup..." });
-    setTimeout(() => {
-      setNotification({
-        type: "success",
-        text: "Backup completed and emailed to you",
-      });
-      setTimeout(() => setNotification(null), 4000);
-    }, 2200);
+  const showNotification = (message) => {
+    setNotification(message);
+    setTimeout(() => setNotification(""), 4000);
   };
 
-  const handleClearCache = async () => {
-    setNotification({ type: "info", text: "Clearing cache..." });
-    setTimeout(() => {
-      setNotification({ type: "success", text: "Cache cleared successfully" });
-      setTimeout(() => setNotification(null), 4000);
-    }, 1500);
+  // Check if profile has changes
+  const hasProfileChanges =
+    originalData.profile !== null &&
+    JSON.stringify(profileData) !== JSON.stringify(originalData.profile);
+
+  // Check if system settings have changes
+  const hasSystemChanges =
+    originalData.system !== null &&
+    JSON.stringify(systemSettings) !== JSON.stringify(originalData.system);
+
+  // Handle profile image upload
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileData((prev) => ({ ...prev, profileImage: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  if (initialLoading) {
+  const toggleDay = (day) => {
+    setSystemSettings((prev) => ({
+      ...prev,
+      businessHours: {
+        ...prev.businessHours,
+        days: prev.businessHours.days.includes(day)
+          ? prev.businessHours.days.filter((d) => d !== day)
+          : [...prev.businessHours.days, day],
+      },
+    }));
+  };
+
+  const allDays = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 px-4 py-8 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <svg
-            className="animate-spin h-8 w-8 text-blue-600"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8v8z"
-            />
-          </svg>
-          <p className="text-slate-500 font-medium">
-            Loading business settings...
-          </p>
+        <div className="text-center">
+          <Loader
+            size={40}
+            className="animate-spin text-blue-600 mx-auto mb-4"
+          />
+          <p className="text-slate-600 font-medium">Loading settings...</p>
         </div>
       </div>
     );
@@ -299,189 +266,44 @@ export default function SettingsView() {
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 space-y-7">
-      {/* Toast Notification */}
       {notification && (
         <div
-          className={`fixed top-6 right-6 px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 z-50 ${
-            notification.type === "success"
-              ? "bg-emerald-600"
-              : notification.type === "error"
-                ? "bg-red-600"
-                : "bg-blue-600"
-          } text-white`}
+          className={`fixed top-6 right-6 z-50 max-w-md px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 ${
+            notification.includes("⚠️")
+              ? "bg-red-600 text-white"
+              : "bg-emerald-600 text-white"
+          }`}
         >
-          {notification.type === "success" ? (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          ) : notification.type === "error" ? (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+          {notification.includes("⚠️") ? (
+            <AlertTriangle size={24} />
           ) : (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+            <CheckCircle size={24} />
           )}
-          <p className="font-medium">{notification.text}</p>
+          <p className="font-medium">
+            {notification.replace(/[✅⚠️]/g, "").trim()}
+          </p>
         </div>
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Station Business Settings
-          </h1>
-          <p className="text-slate-400 text-sm mt-0.5">
-            Manage your station operations and preferences
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          {/* Live indicator with real-time clock */}
-          <div className="flex items-center gap-3 bg-white border border-slate-100 shadow-sm rounded-full px-5 py-2.5">
-            <div className="flex items-center gap-2">
-              {refreshing ? (
-                <>
-                  <svg
-                    className="animate-spin w-4 h-4 text-indigo-400"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8z"
-                    />
-                  </svg>
-                  <span className="text-xs text-slate-400 font-medium">
-                    Syncing…
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs text-slate-400 font-medium">
-                    Live
-                  </span>
-                </>
-              )}
-            </div>
-            {!refreshing && (
-              <>
-                <div className="h-4 w-px bg-slate-200" />
-                <div className="flex items-center gap-1.5">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-3.5 h-3.5 text-slate-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span className="text-xs font-mono font-semibold text-slate-600">
-                    {formatTime(currentTime)}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-
-          <button
-            onClick={() => fetchSettings(true)}
-            disabled={refreshing}
-            className="w-9 h-9 rounded-full bg-white border border-slate-100 shadow-sm hover:bg-slate-50 flex items-center justify-center transition-colors disabled:opacity-60"
-            title="Refresh"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className={`w-4 h-4 text-slate-400 transition-transform duration-500 ${refreshing ? "animate-spin" : "hover:rotate-180"}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          </button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+          Settings
+        </h1>
+        <p className="text-slate-400 text-sm mt-0.5">
+          Manage your profile and system preferences
+        </p>
       </div>
 
       {/* Error Banner */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3 text-red-700">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
+            <AlertTriangle size={20} />
             <span className="font-medium text-sm">{error}</span>
           </div>
           <button
-            onClick={() => fetchSettings(true)}
+            onClick={fetchSettings}
             className="px-5 py-2 text-sm font-semibold bg-white border border-red-300 hover:bg-red-50 rounded-2xl transition-colors"
           >
             Retry
@@ -489,539 +311,645 @@ export default function SettingsView() {
         </div>
       )}
 
-      {/* 3-Column Grid Layout (Matches Admin Settings) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Settings */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Business Information */}
-          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-            <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-3">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5 text-blue-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                />
-              </svg>
-              Business Information
+      {/* Tabs */}
+      <div className="flex gap-2 bg-white rounded-3xl p-2 shadow-sm border border-slate-100 max-w-md">
+        <button
+          onClick={() => setActiveTab("profile")}
+          className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-semibold text-sm transition-all ${
+            activeTab === "profile"
+              ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <User size={18} />
+          <span>Profile</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("system")}
+          className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-semibold text-sm transition-all ${
+            activeTab === "system"
+              ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <Settings size={18} />
+          <span>System</span>
+        </button>
+      </div>
+
+      {/* Profile Settings */}
+      {activeTab === "profile" && (
+        <form onSubmit={handleSaveProfile} className="space-y-6">
+          {/* Profile Image Section */}
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+            <h3 className="text-lg font-semibold text-slate-800 mb-6">
+              Profile Photo
             </h3>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Station / Business Name
+            <div className="flex items-center gap-6">
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-3xl font-bold overflow-hidden">
+                  {profileData.profileImage ? (
+                    <img
+                      src={profileData.profileImage}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    profileData.name.charAt(0).toUpperCase()
+                  )}
+                </div>
+                <label className="absolute -bottom-1 -right-1 w-8 h-8 bg-white border-2 border-slate-200 rounded-full flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors shadow-sm">
+                  <Camera size={14} className="text-slate-600" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
                 </label>
-                <input
-                  type="text"
-                  name="businessName"
-                  value={settings.businessName}
-                  onChange={handleChange}
-                  className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-blue-300 focus:ring-4 focus:ring-blue-100 outline-none transition"
-                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Tax ID / TIN
-                </label>
-                <input
-                  type="text"
-                  name="taxId"
-                  value={settings.taxId}
-                  onChange={handleChange}
-                  className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-blue-300 focus:ring-4 focus:ring-blue-100 outline-none transition"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Business Address
-                </label>
-                <input
-                  type="text"
-                  name="address"
-                  value={settings.address}
-                  onChange={handleChange}
-                  className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-blue-300 focus:ring-4 focus:ring-blue-100 outline-none transition"
-                />
+                <h4 className="font-semibold text-slate-800">
+                  {profileData.name || "Your Name"}
+                </h4>
+                <p className="text-sm text-slate-500">{profileData.email}</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  JPG, PNG or GIF. Max 5MB.
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Notification Preferences */}
-          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-            <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-3">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5 text-blue-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+          {/* Personal Information */}
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+            <h3 className="text-lg font-semibold text-slate-800 mb-6">
+              Personal Information
+            </h3>
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                    Full Name *
+                  </label>
+                  <div className="relative">
+                    <User
+                      size={18}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      type="text"
+                      required
+                      value={profileData.name}
+                      onChange={(e) =>
+                        setProfileData({
+                          ...profileData,
+                          name: e.target.value,
+                        })
+                      }
+                      className="w-full pl-11 pr-5 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all"
+                      placeholder="John Doe"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail
+                      size={18}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      type="email"
+                      value={profileData.email}
+                      disabled
+                      className="w-full pl-11 pr-5 py-4 rounded-2xl border border-slate-200 bg-slate-50 text-slate-500 cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <Phone
+                      size={18}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      type="tel"
+                      value={profileData.phone}
+                      onChange={(e) =>
+                        setProfileData({
+                          ...profileData,
+                          phone: e.target.value,
+                        })
+                      }
+                      className="w-full pl-11 pr-5 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all"
+                      placeholder="+63 912 345 6789"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                    Timezone
+                  </label>
+                  <div className="relative">
+                    <Clock
+                      size={18}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <select
+                      value={profileData.timezone}
+                      onChange={(e) =>
+                        setProfileData({
+                          ...profileData,
+                          timezone: e.target.value,
+                        })
+                      }
+                      className="w-full pl-11 pr-5 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all appearance-none bg-white"
+                    >
+                      <option value="Asia/Manila">Asia/Manila (GMT+8)</option>
+                      <option value="UTC">UTC (GMT+0)</option>
+                      <option value="America/New_York">
+                        America/New York (GMT-5)
+                      </option>
+                      <option value="Europe/London">
+                        Europe/London (GMT+0)
+                      </option>
+                    </select>
+                    <ChevronRight
+                      size={18}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={saving || !hasProfileChanges}
+              className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-3xl hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-300"
+            >
+              {saving ? (
+                <>
+                  <Loader size={18} className="animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save size={18} />
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* System Settings */}
+      {activeTab === "system" && (
+        <form onSubmit={handleSaveSystem} className="space-y-6">
+          {/* Business Hours */}
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800">
+                  Business Hours
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Set when your parking stations are available
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={systemSettings.businessHours.enabled}
+                  onChange={(e) =>
+                    setSystemSettings({
+                      ...systemSettings,
+                      businessHours: {
+                        ...systemSettings.businessHours,
+                        enabled: e.target.checked,
+                      },
+                    })
+                  }
+                  className="sr-only peer"
                 />
-              </svg>
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            {systemSettings.businessHours.enabled && (
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                      Opening Time
+                    </label>
+                    <input
+                      type="time"
+                      value={systemSettings.businessHours.open}
+                      onChange={(e) =>
+                        setSystemSettings({
+                          ...systemSettings,
+                          businessHours: {
+                            ...systemSettings.businessHours,
+                            open: e.target.value,
+                          },
+                        })
+                      }
+                      className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                      Closing Time
+                    </label>
+                    <input
+                      type="time"
+                      value={systemSettings.businessHours.close}
+                      onChange={(e) =>
+                        setSystemSettings({
+                          ...systemSettings,
+                          businessHours: {
+                            ...systemSettings.businessHours,
+                            close: e.target.value,
+                          },
+                        })
+                      }
+                      className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-3">
+                    Operating Days
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {allDays.map((day) => (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => toggleDay(day)}
+                        className={`px-4 py-2 rounded-2xl text-sm font-medium transition-all ${
+                          systemSettings.businessHours.days.includes(day)
+                            ? "bg-blue-600 text-white shadow-md"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        {day.slice(0, 3)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Booking Settings */}
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+            <h3 className="text-lg font-semibold text-slate-800 mb-6">
+              Booking Configuration
+            </h3>
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                    Max Advance Booking (days)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={systemSettings.bookingSettings.maxAdvanceBooking}
+                    onChange={(e) =>
+                      setSystemSettings({
+                        ...systemSettings,
+                        bookingSettings: {
+                          ...systemSettings.bookingSettings,
+                          maxAdvanceBooking: parseInt(e.target.value) || 1,
+                        },
+                      })
+                    }
+                    className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                    Min Booking Duration (hours)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={systemSettings.bookingSettings.minBookingDuration}
+                    onChange={(e) =>
+                      setSystemSettings({
+                        ...systemSettings,
+                        bookingSettings: {
+                          ...systemSettings.bookingSettings,
+                          minBookingDuration: parseInt(e.target.value) || 1,
+                        },
+                      })
+                    }
+                    className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+                  <div>
+                    <div className="font-medium text-slate-800">
+                      Auto-confirm Bookings
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Automatically confirm new bookings
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={systemSettings.bookingSettings.autoConfirmBookings}
+                    onChange={(e) =>
+                      setSystemSettings({
+                        ...systemSettings,
+                        bookingSettings: {
+                          ...systemSettings.bookingSettings,
+                          autoConfirmBookings: e.target.checked,
+                        },
+                      })
+                    }
+                    className="w-5 h-5 accent-blue-600"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+                  <div>
+                    <div className="font-medium text-slate-800">
+                      Allow Partial Hours
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Enable bookings for less than full hours
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={systemSettings.bookingSettings.allowPartialHours}
+                    onChange={(e) =>
+                      setSystemSettings({
+                        ...systemSettings,
+                        bookingSettings: {
+                          ...systemSettings.bookingSettings,
+                          allowPartialHours: e.target.checked,
+                        },
+                      })
+                    }
+                    className="w-5 h-5 accent-blue-600"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Notification Settings */}
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+            <h3 className="text-lg font-semibold text-slate-800 mb-6">
               Notification Preferences
             </h3>
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-slate-800">Email Alerts</p>
-                  <p className="text-sm text-slate-500">
-                    Booking confirmations and updates
-                  </p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="emailAlerts"
-                    checked={settings.emailAlerts}
-                    onChange={handleChange}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-focus:ring-4 peer-focus:ring-blue-100"></div>
-                </label>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-slate-800">
-                    SMS Notifications
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    Instant booking and alert messages
-                  </p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="smsNotifications"
-                    checked={settings.smsNotifications}
-                    onChange={handleChange}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-focus:ring-4 peer-focus:ring-blue-100"></div>
-                </label>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-slate-800">Marketing Emails</p>
-                  <p className="text-sm text-slate-500">
-                    Promotions and station updates
-                  </p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="marketingEmails"
-                    checked={settings.marketingEmails}
-                    onChange={handleChange}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-focus:ring-4 peer-focus:ring-blue-100"></div>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Security Settings */}
-          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-            <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-3">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5 text-blue-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                />
-              </svg>
-              Security
-            </h3>
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-slate-800">
-                    Two-Factor Authentication
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    Require a verification code for every login
-                  </p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="twoFactorEnabled"
-                    checked={settings.twoFactorEnabled}
-                    onChange={handleChange}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-focus:ring-4 peer-focus:ring-blue-100"></div>
-                </label>
-              </div>
-              <div className="pt-4 border-t border-slate-100">
-                <button
-                  onClick={openPasswordModal}
-                  className="w-full py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-2xl transition flex items-center justify-center gap-2 font-medium text-sm"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                    />
-                  </svg>
-                  Change Password
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Side Panel */}
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-            <h3 className="text-lg font-semibold text-slate-800 mb-5 flex items-center gap-3">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5 text-blue-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
-                />
-              </svg>
-              System Status
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-4 h-4 text-emerald-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </div>
-                <span className="text-slate-700 font-medium">
-                  Database: Online
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-4 h-4 text-emerald-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </div>
-                <span className="text-slate-700 font-medium">
-                  API Server: Online
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-4 h-4 text-emerald-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </div>
-                <span className="text-slate-700 font-medium">
-                  Payment Gateway: Online
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-4 h-4 text-amber-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
-                </div>
-                <span className="text-slate-700 font-medium">
-                  Email Service: Degraded
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-            <h3 className="text-lg font-semibold text-slate-800 mb-5 flex items-center gap-3">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5 text-blue-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-              Quick Actions
-            </h3>
             <div className="space-y-3">
-              <button
-                onClick={handleBackup}
-                className="w-full py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-2xl transition flex items-center justify-center gap-2 font-medium text-sm"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                  />
-                </svg>
-                Backup Database
-              </button>
-              <button
-                onClick={handleExportReports}
-                disabled={exporting}
-                className="w-full py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-2xl transition flex items-center justify-center gap-2 font-medium text-sm disabled:opacity-70"
-              >
-                {exporting ? (
-                  <svg
-                    className="animate-spin w-4 h-4 text-slate-600"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8z"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                    />
-                  </svg>
-                )}
-                {exporting ? "Exporting..." : "Export Reports"}
-              </button>
-              <button
-                onClick={handleClearCache}
-                className="w-full py-3.5 bg-red-50 hover:bg-red-100 border border-red-100 text-red-700 rounded-2xl transition flex items-center justify-center gap-2 font-medium text-sm"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-                Clear Cache
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Save / Reset */}
-      <div className="flex justify-end gap-4 pt-4">
-        <button
-          onClick={() => fetchSettings(true)}
-          className="px-8 py-4 border border-slate-200 text-slate-700 rounded-3xl hover:bg-slate-50 transition font-medium"
-        >
-          Reset Changes
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-10 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-3xl font-semibold transition disabled:opacity-70 shadow-lg shadow-blue-200"
-        >
-          {saving ? "Saving Changes..." : "Save All Changes"}
-        </button>
-      </div>
-
-      {/* Change Password Modal */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl">
-            <div className="px-8 pt-8 pb-6 border-b flex justify-between items-center">
-              <h3 className="text-2xl font-bold text-slate-900">
-                Change Password
-              </h3>
-              <button
-                onClick={() => setShowPasswordModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-3xl leading-none"
-              >
-                ×
-              </button>
-            </div>
-
-            <form onSubmit={handlePasswordChange} className="p-8 space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Current Password
-                </label>
-                <input
-                  type="password"
-                  name="currentPassword"
-                  value={currentPassword}
-                  onChange={handlePasswordInput}
-                  className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-blue-300 focus:ring-4 focus:ring-blue-100 outline-none transition"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  name="newPassword"
-                  value={newPassword}
-                  onChange={handlePasswordInput}
-                  className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-blue-300 focus:ring-4 focus:ring-blue-100 outline-none transition"
-                  required
-                />
-                {newPassword && passwordFeedback && (
-                  <div className="mt-3">
-                    <div className="flex gap-1">
-                      {[0, 1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className={`h-1.5 flex-1 rounded-full ${i < passwordFeedback.score ? ["bg-red-400", "bg-orange-400", "bg-yellow-400", "bg-emerald-400"][passwordFeedback.score - 1] : "bg-slate-200"}`}
-                        />
-                      ))}
+              <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+                <div className="flex items-center gap-3">
+                  <Mail size={20} className="text-blue-600" />
+                  <div>
+                    <div className="font-medium text-slate-800">
+                      New Booking Emails
                     </div>
-                    {passwordFeedback.feedback?.suggestions?.length > 0 && (
-                      <p className="text-xs text-slate-400 mt-2">
-                        {passwordFeedback.feedback.suggestions[0]}
-                      </p>
-                    )}
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Receive email for new bookings
+                    </div>
                   </div>
-                )}
-              </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={systemSettings.notifications.emailNewBooking}
+                  onChange={(e) =>
+                    setSystemSettings({
+                      ...systemSettings,
+                      notifications: {
+                        ...systemSettings.notifications,
+                        emailNewBooking: e.target.checked,
+                      },
+                    })
+                  }
+                  className="w-5 h-5 accent-blue-600"
+                />
+              </label>
+
+              <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+                <div className="flex items-center gap-3">
+                  <Mail size={20} className="text-red-600" />
+                  <div>
+                    <div className="font-medium text-slate-800">
+                      Cancellation Emails
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Receive email when bookings are cancelled
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={systemSettings.notifications.emailBookingCancel}
+                  onChange={(e) =>
+                    setSystemSettings({
+                      ...systemSettings,
+                      notifications: {
+                        ...systemSettings.notifications,
+                        emailBookingCancel: e.target.checked,
+                      },
+                    })
+                  }
+                  className="w-5 h-5 accent-blue-600"
+                />
+              </label>
+
+              <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+                <div className="flex items-center gap-3">
+                  <Phone size={20} className="text-emerald-600" />
+                  <div>
+                    <div className="font-medium text-slate-800">
+                      SMS Notifications
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Receive SMS for new bookings
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={systemSettings.notifications.smsNewBooking}
+                  onChange={(e) =>
+                    setSystemSettings({
+                      ...systemSettings,
+                      notifications: {
+                        ...systemSettings.notifications,
+                        smsNewBooking: e.target.checked,
+                      },
+                    })
+                  }
+                  className="w-5 h-5 accent-blue-600"
+                />
+              </label>
+
+              <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+                <div className="flex items-center gap-3">
+                  <Bell size={20} className="text-purple-600" />
+                  <div>
+                    <div className="font-medium text-slate-800">
+                      Push Notifications
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Browser push notifications
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={systemSettings.notifications.pushNotifications}
+                  onChange={(e) =>
+                    setSystemSettings({
+                      ...systemSettings,
+                      notifications: {
+                        ...systemSettings.notifications,
+                        pushNotifications: e.target.checked,
+                      },
+                    })
+                  }
+                  className="w-5 h-5 accent-blue-600"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Payment Settings */}
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+            <h3 className="text-lg font-semibold text-slate-800 mb-6">
+              Payment & Billing
+            </h3>
+            <div className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Confirm New Password
+                  Currency
                 </label>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={confirmPassword}
-                  onChange={handlePasswordInput}
-                  className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-blue-300 focus:ring-4 focus:ring-blue-100 outline-none transition"
-                  required
-                />
+                <div className="relative max-w-xs">
+                  <DollarSign
+                    size={18}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <select
+                    value={systemSettings.paymentSettings.currency}
+                    onChange={(e) =>
+                      setSystemSettings({
+                        ...systemSettings,
+                        paymentSettings: {
+                          ...systemSettings.paymentSettings,
+                          currency: e.target.value,
+                        },
+                      })
+                    }
+                    className="w-full pl-11 pr-5 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all appearance-none bg-white"
+                  >
+                    <option value="PHP">PHP (₱)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                  </select>
+                  <ChevronRight
+                    size={18}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none"
+                  />
+                </div>
               </div>
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowPasswordModal(false)}
-                  className="flex-1 py-4 border border-slate-200 rounded-3xl font-medium hover:bg-slate-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={changingPassword}
-                  className="flex-1 py-4 bg-blue-600 text-white rounded-3xl font-semibold disabled:opacity-70"
-                >
-                  {changingPassword ? "Updating..." : "Update Password"}
-                </button>
+
+              <div className="space-y-3">
+                <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+                  <div>
+                    <div className="font-medium text-slate-800">
+                      Auto-generate Invoices
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Automatically create invoices for bookings
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={systemSettings.paymentSettings.autoInvoice}
+                    onChange={(e) =>
+                      setSystemSettings({
+                        ...systemSettings,
+                        paymentSettings: {
+                          ...systemSettings.paymentSettings,
+                          autoInvoice: e.target.checked,
+                        },
+                      })
+                    }
+                    className="w-5 h-5 accent-blue-600"
+                  />
+                </label>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                    Payment Reminder (hours before)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={systemSettings.paymentSettings.paymentReminder}
+                    onChange={(e) =>
+                      setSystemSettings({
+                        ...systemSettings,
+                        paymentSettings: {
+                          ...systemSettings.paymentSettings,
+                          paymentReminder: parseInt(e.target.value) || 1,
+                        },
+                      })
+                    }
+                    className="w-full max-w-xs px-5 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all"
+                  />
+                </div>
               </div>
-            </form>
+            </div>
           </div>
-        </div>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={saving || !hasSystemChanges}
+              className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-3xl hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-300"
+            >
+              {saving ? (
+                <>
+                  <Loader size={18} className="animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save size={18} />
+                  <span>Save Settings</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       )}
     </div>
   );

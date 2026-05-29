@@ -145,7 +145,7 @@ const createBooking = async (req, res, next) => {
       await session.commitTransaction();
 
       // === AUDIT LOG ===
-      const emitAuditLog = req.app.get("emitAuditLog");
+      const emitAuditLog = req.app.locals.emitAuditLog;
       if (emitAuditLog) {
         emitAuditLog({
           user: req.user.id,
@@ -159,7 +159,7 @@ const createBooking = async (req, res, next) => {
       }
 
       // === REAL-TIME NOTIFICATIONS ===
-      const notificationService = req.app.get("notificationService");
+      const notificationService = req.app.locals.notificationService;
       if (notificationService) {
         notificationService.sendBookingNotification({
           type: "bookingCreated",
@@ -258,7 +258,7 @@ const completeBooking = async (req, res, next) => {
     });
 
     // === REAL-TIME NOTIFICATIONS ===
-    const notificationService = req.app.get("notificationService");
+    const notificationService = req.app.locals.notificationService;
     if (notificationService) {
       notificationService.sendBookingNotification({
         type: "bookingCompleted",

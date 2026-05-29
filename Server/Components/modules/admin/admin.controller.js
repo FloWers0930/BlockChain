@@ -12,13 +12,11 @@ const Settings = require("../shared/settings.model.js");
 // Escape regex special characters to prevent ReDoS attacks
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// ==================== DASHBOARD STATS (OPTIMIZED) ====================
+// ==================== DASHBOARD STATS ====================
 const getDashboardStats = async (req, res, next) => {
   try {
-    // ✅ STRICT FILTER: Only count mobile app users (exclude platform staff)
     const userQuery = { role: { $nin: ["admin", "owner", "staff"] } };
 
-    // Calculate 7 days ago for the revenue chart
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     sevenDaysAgo.setHours(0, 0, 0, 0);
@@ -44,8 +42,6 @@ const getDashboardStats = async (req, res, next) => {
       StationSpot.countDocuments({ status: "available", isActive: true }),
       StationSpot.countDocuments({ status: "occupied", isActive: true }),
       Booking.countDocuments({ status: "active" }),
-
-      // 📊 Revenue Chart Data (Last 7 Days)
       Booking.aggregate([
         {
           $match: { paymentStatus: "paid", createdAt: { $gte: sevenDaysAgo } },
@@ -58,8 +54,6 @@ const getDashboardStats = async (req, res, next) => {
         },
         { $sort: { _id: 1 } },
       ]),
-
-      // 📍 Top Locations Data (By Revenue)
       Booking.aggregate([
         { $match: { paymentStatus: "paid" } },
         {
@@ -105,11 +99,10 @@ const getDashboardStats = async (req, res, next) => {
 // ==================== GET ALL USERS ====================
 const getAllUsers = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(parseInt(req.query.limit) || 20, 50);
     const skip = (page - 1) * limit;
 
-    // ✅ STRICT FILTER: Only fetch mobile app users (exclude platform staff)
     const query = { role: { $nin: ["admin", "owner", "staff"] } };
 
     const [users, total] = await Promise.all([
@@ -140,14 +133,12 @@ const updateUserStatus = async (req, res, next) => {
   try {
     const { isActive } = req.body;
 
-    // Schema is validated in middleware; keep guard as extra safety.
     if (typeof isActive !== "boolean") {
       return res
         .status(400)
         .json({ success: false, message: "isActive must be a boolean" });
     }
 
-    // Prevent modifying platform staff via this endpoint
     const oldUser = await User.findOne({
       _id: req.params.id,
       role: { $nin: ["admin", "owner", "staff"] },
@@ -166,9 +157,7 @@ const updateUserStatus = async (req, res, next) => {
       { new: true, runValidators: true },
     );
 
-    // Emit audit log for sensitive user status change
-    const emitAuditLog =
-      req.app.locals?.emitAuditLog || req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals?.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: req.user.id,
@@ -182,8 +171,7 @@ const updateUserStatus = async (req, res, next) => {
       });
     }
 
-    // Emit socket event for real-time updates
-    const io = req.app.locals?.io || req.app.get("io");
+    const io = req.app.locals?.io;
     if (io) io.emit("userUpdated", { userId: user._id, isActive });
 
     res.json({ success: true, user });
@@ -195,7 +183,7 @@ const updateUserStatus = async (req, res, next) => {
 // ==================== GET ALL STATION SPOTS ====================
 const getAllSpots = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(parseInt(req.query.limit) || 10, 100);
     const skip = (page - 1) * limit;
 
@@ -209,7 +197,6 @@ const getAllSpots = async (req, res, next) => {
             as: "owner",
           },
         },
-        // ✅ FIX: Prevents data loss if an owner account was deleted
         { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
         {
           $project: {
@@ -238,7 +225,7 @@ const getAllSpots = async (req, res, next) => {
 // ==================== GET ALL BOOKINGS ====================
 const getAllBookings = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(parseInt(req.query.limit) || 10, 100);
     const skip = (page - 1) * limit;
 
@@ -260,7 +247,6 @@ const getAllBookings = async (req, res, next) => {
             as: "spot",
           },
         },
-        // ✅ FIX: Prevents data loss if a user or spot was deleted
         { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
         { $unwind: { path: "$spot", preserveNullAndEmptyArrays: true } },
         {
@@ -298,13 +284,19 @@ const getAuditLog = async (req, res, next) => {
       fromDate,
       toDate,
       timezone,
-      userId, // ✅ Added for User Activity Timeline modal
+      userId,
     } = req.query;
 
     const match = {};
 
-    // ✅ Filter by specific user (for the Activity Timeline modal)
+    // ✅ Validate userId before using as ObjectId
     if (userId) {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid userId format",
+        });
+      }
       match.user = new mongoose.Types.ObjectId(userId);
     }
 
@@ -318,28 +310,27 @@ const getAuditLog = async (req, res, next) => {
       ];
     }
 
-    // Handle timezone-aware date filtering
     if (fromDate || toDate) {
       match.createdAt = {};
 
-      // Get timezone offset in minutes (default: UTC)
       const tzOffset = timezone ? parseInt(timezone) : 0;
       const offsetMs = tzOffset * 60 * 1000;
 
       if (fromDate) {
-        // Start of day in user's timezone
         const from = new Date(fromDate);
         from.setHours(0, 0, 0, 0);
         match.createdAt.$gte = new Date(from.getTime() - offsetMs);
       }
 
       if (toDate) {
-        // End of day in user's timezone
         const to = new Date(toDate);
         to.setHours(23, 59, 59, 999);
         match.createdAt.$lte = new Date(to.getTime() - offsetMs);
       }
     }
+
+    // ✅ Cap limit to prevent memory exhaustion
+    const safeLimit = Math.min(parseInt(limit) || 100, 500);
 
     const activities = await Audit.aggregate([
       { $match: match },
@@ -360,7 +351,7 @@ const getAuditLog = async (req, res, next) => {
         },
       },
       { $sort: { createdAt: -1 } },
-      { $limit: parseInt(limit) },
+      { $limit: safeLimit },
     ]);
 
     res.json({ success: true, activities, count: activities.length });
@@ -370,6 +361,17 @@ const getAuditLog = async (req, res, next) => {
 };
 
 // ==================== SETTINGS ====================
+
+// ✅ Added Zod schema for settings validation
+const updateSettingsSchema = z.object({
+  appName: z.string().min(1).max(100).optional(),
+  supportEmail: z.string().email().optional(),
+  currency: z.string().length(3).optional(),
+  autoCancel: z.boolean().optional(),
+  waitlist: z.boolean().optional(),
+  maintenanceMode: z.boolean().optional(),
+});
+
 const getSettings = async (req, res, next) => {
   try {
     let settings = await Settings.findOne();
@@ -413,8 +415,7 @@ const updateSettings = async (req, res, next) => {
       await settings.save();
     }
 
-    const emitAuditLog =
-      req.app.locals?.emitAuditLog || req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals?.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: req.user.id,
@@ -428,8 +429,7 @@ const updateSettings = async (req, res, next) => {
       });
     }
 
-    // Emit socket event so all admins see the change in real-time
-    const io = req.app.locals?.io || req.app.get("io");
+    const io = req.app.locals?.io;
     if (io) io.emit("settingsUpdated", settings);
 
     res.json({
@@ -442,7 +442,6 @@ const updateSettings = async (req, res, next) => {
   }
 };
 
-// ====================== EXPORT ALL CONTROLLERS ======================
 module.exports = {
   getDashboardStats,
   getAllUsers,
@@ -453,4 +452,5 @@ module.exports = {
   getSettings,
   updateSettings,
   updateUserStatusSchema,
+  updateSettingsSchema,
 };

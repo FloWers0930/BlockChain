@@ -27,6 +27,8 @@ const adminRoutes = require("./Components/modules/admin/admin.routes");
 const analyticsRoutes = require("./Components/modules/analytics/analytics.routes");
 const supportRoutes = require("./Components/modules/support/support.routes");
 const auditRoutes = require("./Components/modules/audit/audit.routes");
+const transactionRoutes = require("./Components/modules/transaction/transactionRoutes");
+
 const sentry = initSentry();
 const app = express();
 const server = http.createServer(app);
@@ -42,7 +44,7 @@ app.set("trust proxy", 1);
 app.use(
   helmet({
     hsts: {
-      maxAge: 31536000, // 1 year in seconds
+      maxAge: 31536000,
       includeSubDomains: true,
       preload: true,
     },
@@ -84,6 +86,8 @@ app.use("/api/admin", supportRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/audit", auditRoutes);
+app.use("/api/transactions", transactionRoutes);
+
 app.get("/api/csrf-token", (req, res) =>
   res.json({ success: true, token: res.locals.csrfToken }),
 );
@@ -96,7 +100,6 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 if (sentry) {
-  // Capture unhandled errors before our errorHandler sends the response
   app.use(require("@sentry/node").Handlers.errorHandler());
 }
 
@@ -107,12 +110,10 @@ const io = new Server(server, {
   pingInterval: 25000,
 });
 
-// Socket.IO authentication middleware - verify JWT token
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
   const userId = socket.handshake.auth.userId;
 
-  // Require authentication for Socket.IO connections
   if (!token || !userId) {
     return next(new Error("Authentication required"));
   }
@@ -143,7 +144,6 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Security: Validate room access based on user role and room type
     const allowJoin = validateRoomAccess(socket, room);
     if (!allowJoin) {
       logger.warn("Unauthorized room join attempt", {
@@ -151,9 +151,7 @@ io.on("connection", (socket) => {
         room,
         userId: socket.userId,
       });
-      socket.emit("error", {
-        message: "Unauthorized to join this room",
-      });
+      socket.emit("error", { message: "Unauthorized to join this room" });
       return;
     }
 
@@ -166,18 +164,14 @@ io.on("connection", (socket) => {
   });
 });
 
-// Validate room access based on user authentication and room type
 const validateRoomAccess = (socket, room) => {
-  // Public rooms (anyone can join)
   if (room.startsWith("public:")) return true;
 
-  // User-specific rooms (must be authenticated and match userId)
   if (room.startsWith("user:")) {
     const targetUserId = room.split(":")[1];
     return socket.userId && socket.userId === targetUserId;
   }
 
-  // Owner rooms (must be owner or admin)
   if (room.startsWith("owner:")) {
     const targetOwnerId = room.split(":")[1];
     return (
@@ -187,26 +181,33 @@ const validateRoomAccess = (socket, room) => {
     );
   }
 
-  // Admin rooms (only admins)
   if (room.startsWith("admin:")) {
     return socket.userRole === "admin";
   }
 
-  // Default: deny unknown room types
   return false;
 };
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
-// Validate required environment variables
 const validateEnvironment = () => {
-  const requiredVars = ["JWT_SECRET", "MONGO_URI"];
+  // ✅ UPDATED: Added JWT_REFRESH_SECRET and blockchain vars
+  const requiredVars = [
+    "JWT_SECRET",
+    "JWT_REFRESH_SECRET",
+    "MONGO_URI",
+    "BESU_RPC_URL",
+    "SERVER_WALLET_PRIVATE_KEY",
+    "CONTRACT_ADDRESS",
+  ];
+
   const optionalButImportant = [
     "STRIPE_SECRET_KEY",
     "VAPID_PUBLIC_KEY",
     "VAPID_PRIVATE_KEY",
   ];
+
   const missing = requiredVars.filter((v) => !process.env[v]);
 
   if (missing.length > 0) {
@@ -218,6 +219,7 @@ const validateEnvironment = () => {
     );
   }
 
+  // ✅ UPDATED: Check both JWT secrets are strong enough
   if (process.env.JWT_SECRET.length < 32) {
     logger.error(
       "❌ JWT_SECRET must be at least 32 characters long for security",
@@ -225,11 +227,19 @@ const validateEnvironment = () => {
     throw new Error("JWT_SECRET must be at least 32 characters long");
   }
 
-  // Warn about optional but important variables
+  if (process.env.JWT_REFRESH_SECRET.length < 32) {
+    logger.error(
+      "❌ JWT_REFRESH_SECRET must be at least 32 characters long for security",
+    );
+    throw new Error("JWT_REFRESH_SECRET must be at least 32 characters long");
+  }
+
   const missingOptional = optionalButImportant.filter((v) => !process.env[v]);
   if (missingOptional.length > 0) {
     logger.warn(
-      `⚠️ Optional environment variables missing: ${missingOptional.join(", ")}. Some features may not work.`,
+      `⚠️ Optional environment variables missing: ${missingOptional.join(
+        ", ",
+      )}. Some features may not work.`,
     );
   }
 
@@ -269,7 +279,6 @@ const start = async () => {
     }
   };
 
-  // ✅ UPDATED: Use app.locals for reliable access across all routes
   app.locals.notificationService = notificationService;
   app.locals.emitAuditLog = emitAuditLog;
   app.locals.io = io;

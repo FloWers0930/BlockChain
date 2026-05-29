@@ -58,7 +58,7 @@ const createSupportTicket = async (req, res, next) => {
       // Don't fail the ticket creation if email fails - still create the ticket
     }
 
-    const io = req.app.get("io");
+    const io = req.app.locals.io;
     if (io) io.emit("newSupportTicket", ticket);
 
     logger.info("✅ Support ticket created", {
@@ -133,7 +133,7 @@ const replyToSupportTicket = async (req, res, next) => {
       emailSent,
     });
 
-    const emitAuditLog = req.app.get("emitAuditLog");
+    const emitAuditLog = req.app.locals.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
         user: req.user.id,

@@ -132,7 +132,6 @@ export default function LandingPage() {
               <div className="text-white">
                 <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-6 py-3 rounded-full text-sm font-semibold mb-6 border border-white/30">
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                  {/* ✅ Replaced Rocket Emoji with SVG */}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="w-4 h-4"
@@ -162,8 +161,10 @@ export default function LandingPage() {
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4 mb-14">
-                  <button className="btn btn-primary text-lg px-8 py-4 flex items-center justify-center gap-3 shadow-2xl">
-                    {/* ✅ Replaced FontAwesome with SVG */}
+                  <Link
+                    to="/download"
+                    className="btn btn-primary text-lg px-8 py-4 flex items-center justify-center gap-3 shadow-2xl no-underline"
+                  >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       className="w-5 h-5"
@@ -178,8 +179,8 @@ export default function LandingPage() {
                         d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
                       />
                     </svg>
-                    Get the App — It's Free
-                  </button>
+                    Download the App Now
+                  </Link>
                 </div>
 
                 <div className="flex flex-wrap gap-10 sm:gap-14">
@@ -243,7 +244,6 @@ export default function LandingPage() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-8">
-              {/* ✅ Replaced Bus Emoji with SVG */}
               <div
                 className="card p-8 text-center group hover:shadow-2xl animate-fade-in"
                 style={{ animationDelay: "0.2s" }}
@@ -277,7 +277,6 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              {/* ✅ Replaced Hotel Emoji with SVG */}
               <div
                 className="card p-8 text-center group hover:shadow-2xl animate-fade-in"
                 style={{ animationDelay: "0.4s" }}
@@ -304,7 +303,6 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              {/* ✅ Replaced Shopping Emoji with SVG */}
               <div
                 className="card p-8 text-center group hover:shadow-2xl animate-fade-in"
                 style={{ animationDelay: "0.6s" }}
@@ -458,11 +456,14 @@ export default function LandingPage() {
                 <div className="text-6xl font-bold text-gray-800 my-4">₱50</div>
                 <p className="text-gray-500">First 3 hours</p>
                 <p className="text-xs text-gray-400 mt-4">
-                  Then ₱20 per additional hour
+                  ₱10 per succeeding hour
                 </p>
-                <button className="block w-full mt-10 py-4 bg-[#4f46e5] text-white rounded-2xl font-semibold hover:bg-[#4338ca] transition">
-                  Get Started Free
-                </button>
+                <Link
+                  to="/download"
+                  className="block w-full mt-10 py-4 bg-[#4f46e5] text-white text-center rounded-2xl font-semibold hover:bg-[#4338ca] transition no-underline"
+                >
+                  Download the App Now
+                </Link>
               </div>
 
               <div className="bg-white border-2 border-[#4f46e5] rounded-3xl p-8 relative shadow-premium">
@@ -470,32 +471,38 @@ export default function LandingPage() {
                   MOST POPULAR
                 </div>
                 <h3 className="text-2xl font-semibold text-gray-800 mb-1">
-                  Daily Pass
+                  Overnight Pass
                 </h3>
                 <div className="text-6xl font-bold text-gray-800 my-4">
-                  ₱199
+                  ₱500
                 </div>
-                <p className="text-gray-500">Up to 12 hours</p>
+                <p className="text-gray-500">Overnight parking</p>
                 <p className="text-xs text-gray-400 mt-4">
-                  Best value for full‑day use
+                  Best value for overnight stays
                 </p>
-                <button className="block w-full mt-10 py-4 bg-[#4f46e5] text-white rounded-2xl font-semibold hover:bg-[#4338ca] transition">
-                  Get Started Free
-                </button>
+                <Link
+                  to="/download"
+                  className="block w-full mt-10 py-4 bg-[#4f46e5] text-white text-center rounded-2xl font-semibold hover:bg-[#4338ca] transition no-underline"
+                >
+                  Download the App Now
+                </Link>
               </div>
 
               <div className="bg-white border border-gray-200 rounded-3xl p-8">
                 <h3 className="text-2xl font-semibold text-gray-800 mb-1">
-                  Monthly Pass
+                  Succeeding Hours
                 </h3>
-                <div className="text-6xl font-bold text-gray-800 my-4">
-                  ₱2,999
-                </div>
-                <p className="text-gray-500">Unlimited access</p>
-                <p className="text-xs text-gray-400 mt-4">For frequent users</p>
-                <button className="block w-full mt-10 py-4 bg-[#4f46e5] text-white rounded-2xl font-semibold hover:bg-[#4338ca] transition">
-                  Get Started Free
-                </button>
+                <div className="text-6xl font-bold text-gray-800 my-4">₱10</div>
+                <p className="text-gray-500">Per succeeding hour</p>
+                <p className="text-xs text-gray-400 mt-4">
+                  Penalty for overstaying
+                </p>
+                <Link
+                  to="/download"
+                  className="block w-full mt-10 py-4 bg-[#4f46e5] text-white text-center rounded-2xl font-semibold hover:bg-[#4338ca] transition no-underline"
+                >
+                  Download the App Now
+                </Link>
               </div>
             </div>
           </div>

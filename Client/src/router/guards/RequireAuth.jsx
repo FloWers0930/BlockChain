@@ -39,20 +39,16 @@ export default function RequireAuth({ children, allowedRoles = [] }) {
 
   // ── Not authenticated — redirect to login with return path ───────────────
   if (!isAuthenticated || !user) {
-    if (process.env.NODE_ENV === "development") {
-      console.log(
-        `[Auth Guard] Redirecting to /login (from: ${location.pathname})`,
-      );
+    if (import.meta.env.DEV) {
+      // Auth guard redirecting to login
     }
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // ── Authenticated but role not permitted — redirect to unauthorized ──────
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn(
-        `[Auth Guard] Access denied: user role "${user.role}" not in [${allowedRoles.join(", ")}]`,
-      );
+    if (import.meta.env.DEV) {
+      // Access denied by role check
     }
     return (
       <Navigate

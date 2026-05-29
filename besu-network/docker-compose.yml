@@ -1,21 +1,23 @@
+version: '3.8'
+
 services:
   besu:
     image: hyperledger/besu:25.3.0
     container_name: besu-node
     command:
-      - --genesis-file=/config/genesis.json
-      - --data-path=/var/lib/besu
-      - --node-private-key-file=/var/lib/besu/key
+      - --data-path=/data
       - --rpc-http-enabled=true
       - --rpc-http-host=0.0.0.0
       - --rpc-http-port=8545
       - --rpc-http-cors-origins=*
-      - --rpc-http-api=ETH,NET,WEB3,CLIQUE
+      - --rpc-http-api=ETH,NET,WEB3
       - --host-allowlist=*
-      - --min-gas-price=0
+      - --miner-enabled=true
+      - --miner-coinbase=0xb798b740a9649aa76fc01207926c40fb23f2eb35
     ports:
       - "8545:8545"
       - "30303:30303"
     volumes:
-      - ./genesis.json:/config/genesis.json
-      - ./node1:/var/lib/besu
+      - ./node1:/data
+    environment:
+      - LOG_LEVEL=INFO
