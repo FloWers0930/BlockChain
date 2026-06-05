@@ -3,6 +3,7 @@
 
 const express = require("express");
 const mongoose = require("mongoose");
+const rateLimit = require("express-rate-limit");
 const { Authenticate, restrictTo } = require("../../middlewares/auth.js");
 const { validateBody } = require("../../middlewares/validate.js");
 const {
@@ -10,6 +11,7 @@ const {
   createSupportTicket,
   replyToSupportTicket,
   getMyTickets,
+  createSupportTicketSchema,
   replyToSupportTicketSchema,
 } = require("./support.controller.js");
 
@@ -24,14 +26,32 @@ const validateObjectId = (req, res, next) => {
   next();
 };
 
+// ✅ FIX 5: Rate limiter for ticket creation (prevent spam)
+const ticketCreationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 tickets per hour per user
+  message: {
+    success: false,
+    message:
+      "Too many support tickets created. Please wait before creating another.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 router.use(Authenticate);
 
-// Authenticated users
-router.post("/support/tickets", createSupportTicket);
+// Authenticated users — can create tickets and view their own
+router.post(
+  "/support/tickets",
+  ticketCreationLimiter,
+  validateBody(createSupportTicketSchema),
+  createSupportTicket,
+);
 router.get("/support/my-tickets", getMyTickets);
 
-// Admin-only support management
-router.use(restrictTo("admin"));
+// Admin-only support management — these routes require admin role
+router.use(restrictTo("admin", "support"));
 router.get("/support/tickets", getSupportTickets);
 router.post(
   "/support/tickets/:id/reply",

@@ -31,7 +31,7 @@ export default function CreateTicketModal({
     setError("");
 
     try {
-      const { data } = await api.post("/admin/support/tickets", formData);
+      const { data } = await api.post("/support/support/tickets", formData);
 
       setSuccess(true);
       setTimeout(() => {
@@ -276,3 +276,4 @@ export default function CreateTicketModal({
     </div>
   );
 }
+

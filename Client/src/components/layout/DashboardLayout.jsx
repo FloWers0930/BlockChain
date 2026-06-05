@@ -1,9 +1,19 @@
-// src/components/dashboard/DashboardLayout.jsx
+// src/components/layout/DashboardLayout.jsx
 import { useState, useCallback } from "react";
 import { useAuth } from "@providers/AuthProvider";
 import NotificationBell from "../ui/NotificationBell";
 
-export default function DashboardLayout({ children, menuItems, title, role }) {
+// ✅ FIX: menuItems defaults to [] so .map() never runs on undefined.
+// Previously, DashboardLayout crashed with "Cannot read properties of undefined
+// (reading 'map')" when rendered via ProtectedLayout without menuItems being
+// passed — e.g. on the /change-password route or any route that uses
+// ProtectedLayout directly without a parent dashboard component.
+export default function DashboardLayout({
+  children,
+  menuItems = [],
+  title,
+  role,
+}) {
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -72,7 +82,11 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
           bg-white border-r border-slate-100
           flex flex-col
           transition-transform duration-300 ease-in-out
-          ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+          ${
+            mobileMenuOpen
+              ? "translate-x-0"
+              : "-translate-x-full lg:translate-x-0"
+          }
         `}
       >
         {/* Logo */}
@@ -126,7 +140,6 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
                     }
                   `}
                 >
-                  {/* ✅ Rendered with className to support inline SVG components */}
                   {Icon && <Icon className="w-5 h-5" />}
                 </div>
                 <span className="font-semibold text-sm truncate">
@@ -215,3 +228,4 @@ export default function DashboardLayout({ children, menuItems, title, role }) {
     </div>
   );
 }
+

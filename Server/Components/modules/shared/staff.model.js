@@ -171,6 +171,10 @@ const staffSchema = new mongoose.Schema(
     deletedAt: { type: Date, default: null },
     passwordHash: String,
     salt: String,
+    mustChangePassword: {
+      type: Boolean,
+      default: false,
+    },
     documents: {
       type: [documentSubSchema],
       validate: {

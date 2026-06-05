@@ -79,7 +79,7 @@ export default function SupportView() {
       setTickets(data.tickets || data.data || []);
       setError(null);
     } catch (err) {
-      if (process.env.NODE_ENV === "development")
+      if (import.meta.env.DEV)
         console.error("Failed to fetch support tickets:", err);
       setError("Failed to load support tickets. Please check your connection.");
     } finally {
@@ -162,7 +162,7 @@ export default function SupportView() {
         setNotification(null);
       }, 1500);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") console.error(err);
+      if (import.meta.env.DEV) console.error(err);
       setNotification({ type: "error", text: "Failed to send response." });
       setTimeout(() => setNotification(null), 3000);
     } finally {
@@ -792,3 +792,4 @@ export default function SupportView() {
     </div>
   );
 }
+

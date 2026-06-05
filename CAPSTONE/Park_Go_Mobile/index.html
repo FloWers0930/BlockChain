@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Park and Go - Unified App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div id="loginScreen" class="screen">
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <img src="assets/logo1.jpg" alt="Park and Go logo" class="logo-photo">
+                </div>
+                <h1 style="font-size: 24px;">PARK AND GO</h1>
+                <p style="font-size: 11px; color: #888;">Secure Smart Parking</p>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" id="tabLogin">Sign In</button>
+                <button class="tab" id="tabRegister">Sign Up</button>
+            </div>
+
+            <form id="authForm">
+                <div id="regFields" class="hidden">
+                    <div class="input-group"><i class="fa-solid fa-user"></i><input type="text" placeholder="Full Name"></div>
+                    <div class="input-group"><i class="fa-solid fa-phone"></i><input type="tel" placeholder="Mobile Number"></div>
+                    <div style="margin-bottom: 20px; padding-left: 5px;">
+                        <p style="font-size: 11px; color: #888; margin-bottom: 8px;">Identity Verification (Valid ID)</p>
+                        <input type="file" style="font-size: 11px; color: #666;">
+                    </div>
+                </div>
+
+                <div class="input-group"><i class="fa-solid fa-envelope"></i><input type="email" placeholder="Email Address" required></div>
+                <div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" id="password" placeholder="Password" required></div>
+
+                <div id="confirmWrapper" class="hidden">
+                    <div class="input-group"><i class="fa-solid fa-shield-check"></i><input type="password" id="confirmPassword" placeholder="Confirm Password"></div>
+                </div>
+
+                <button type="submit" class="action-btn" id="mainBtn">Login</button>
+
+                <div class="terms-row">
+                    <input type="checkbox" id="agreeTerms">
+                    <div class="terms-text">
+                        I agree to the <a href="#" id="openTerms">Terms and Conditions</a> of Park and Go.
+                        <div class="terms-hint" id="termsHint">Required for Sign Up</div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div id="termsModal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3>Terms and Conditions</h3>
+                    <button class="modal-close" id="closeTerms"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Last Updated:</strong> January 2026</p>
+
+                    <h4>1. Acceptance</h4>
+                    <p>By creating an account and using Park and Go, you agree to follow these Terms and Conditions.</p>
+
+                    <h4>2. User Responsibility</h4>
+                    <p>You are responsible for maintaining your account credentials and all activities under your account.</p>
+
+                    <h4>3. Reservations</h4>
+                    <p>Reservations depend on slot availability. The system may cancel reservations if policies are violated.</p>
+
+                    <h4>4. Payments</h4>
+                    <p>All payments processed via the app are subject to system rules and applicable operator policies.</p>
+
+                    <h4>5. Privacy</h4>
+                    <p>Your personal information is handled according to the system's privacy and security policies.</p>
+
+                    <h4>6. Changes</h4>
+                    <p>Park and Go may update these terms when necessary. Continued use means you accept changes.</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-ghost" id="declineTerms">Close</button>
+                    <button class="btn-primary" id="acceptTerms">Accept</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="homeScreen" class="screen hidden">
+            <header class="header">
+                <button class="icon-btn" onclick="navigate('profileScreen', document.querySelectorAll('.nav-item')[3])"><i class="fa-solid fa-user"></i></button>
+                <h2 style="font-size: 17px; font-weight: 700;">Home</h2>
+                <button class="icon-btn"><i class="fa-solid fa-bell"></i></button>
+            </header>
+
+            <div class="scroll-content">
+                <span class="section-label" style="margin-top:0;">Parking Location</span>
+                <div class="glass-card" style="display: flex; align-items: center; gap: 15px;">
+                    <div style="color: #FFD700; font-size: 20px;"><i class="fa-solid fa-location-dot"></i></div>
+                    <div><p style="font-weight: 600; font-size: 14px;">National University</p><p style="font-size: 11px; color: #888;">Sampaloc, Manila</p></div>
+                </div>
+
+                <span class="section-label">Schedule</span>
+                <div class="schedule-grid">
+                    <div class="glass-card">
+                        <p style="font-size: 9px; color: #FFD700; font-weight: 700;">DATE</p>
+                        <input type="date" value="2026-01-22" style="background:transparent; border:none; color:#fff; font-size:12px; width:100%;">
+                    </div>
+                    <div class="glass-card">
+                        <p style="font-size: 9px; color: #FFD700; font-weight: 700;">TIME</p>
+                        <input type="time" value="15:00" style="background:transparent; border:none; color:#fff; font-size:12px; width:100%;">
+                    </div>
+                </div>
+
+                <span class="section-label">Select Slot</span>
+                <div class="slots-container">
+                    <div class="slot-pill active" data-slot="A1">A1</div>
+                    <div class="slot-pill" data-slot="A2">A2</div>
+                    <div class="slot-pill" data-slot="A3">A3</div>
+                    <div class="slot-pill" data-slot="A4">A4</div>
+                    <div class="slot-pill" data-slot="B1">B1</div>
+                    <div class="slot-pill" data-slot="B2">B2</div>
+                    <div class="slot-pill" data-slot="B3">B3</div>
+                    <div class="slot-pill" data-slot="B4">B4</div>
+                </div>
+            </div>
+
+            <div class="floating-footer">
+                <div>
+                    <p style="font-size: 10px; color: #888; font-weight: 600;">SELECTED SLOT</p>
+                    <p style="font-size: 20px; font-weight: 700; color: #FFD700;" id="homeSlot">A1</p>
+                </div>
+                <button class="action-btn" style="width: auto; margin:0; padding: 12px 25px;" onclick="alert('Spot Reserved!')">Reserve Now</button>
+            </div>
+        </div>
+
+        <div id="walletScreen" class="screen hidden">
+            <header class="header">
+                <div style="width: 40px;"></div>
+                <h2 style="font-size: 17px; font-weight: 700;">E-Wallet</h2>
+                <button class="icon-btn"><i class="fa-solid fa-ellipsis"></i></button>
+            </header>
+
+            <div class="scroll-content">
+                <div class="wallet-section-head">
+                    <p class="section-label">Payment Methods</p>
+                    <p class="wallet-section-note">Tap a method to pay or manage access.</p>
+                </div>
+                <div class="payment-method-item" onclick="alert('Linked to GCash')">
+                    <div class="payment-method-main">
+                        <div class="method-logo" style="background: #007dfe; color: white;"><i class="fa-solid fa-wallet"></i></div>
+                        <div class="payment-method-copy">
+                            <p class="payment-method-title">GCash</p>
+                            <p class="payment-method-meta">Linked: 0917****123</p>
+                        </div>
+                    </div>
+                    <span class="payment-status">Active</span>
+                </div>
+
+                <div class="payment-method-item" onclick="alert('Opening QR Scanner...')">
+                    <div class="payment-method-main">
+                        <div class="method-logo" style="background: #1a1a1a; border: 1px solid #FFD700;"><i class="fa-solid fa-qrcode" style="color: #FFD700;"></i></div>
+                        <div class="payment-method-copy">
+                            <p class="payment-method-title">GCash QR Code</p>
+                            <p class="payment-method-meta">Scan to pay</p>
+                        </div>
+                    </div>
+                    <div class="payment-action-icon"><i class="fa-solid fa-camera"></i></div>
+                </div>
+
+                <div class="character-card character-card-wallet wallet-character-lower">
+                    <div class="character-copy">
+                        <p class="character-eyebrow">Payment Assistant</p>
+                        <h3>Ready when you are</h3>
+                        <p>Use your wallet first, then confirm your reservation in a few taps.</p>
+                    </div>
+                    <div class="character-figure wallet-character-figure" aria-hidden="true">
+                        <img src="assets/cahr 1.png" alt="Parking assistant character" class="character-photo">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="historyScreen" class="screen hidden">
+            <header class="header">
+                <div style="width: 40px;"></div>
+                <h2 style="font-size: 17px; font-weight: 700;">Transaction History</h2>
+                <button class="icon-btn"><i class="fa-solid fa-filter"></i></button>
+            </header>
+
+            <div class="scroll-content">
+                <span class="section-label">Recent Transactions</span>
+
+                <div class="history-item">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div class="history-icon" style="background: rgba(255, 215, 0, 0.15); color: #FFD700;">
+                            <i class="fa-solid fa-square-p"></i>
+                        </div>
+                        <div class="history-info">
+                            <p>Parking Slot A1</p>
+                            <p>Jan 22, 2026 • 03:27 PM</p>
+                        </div>
+                    </div>
+                    <div class="history-amount">
+                        <p style="color: #ff4d4d;">-P50.00</p>
+                        <span class="status-badge status-success">Completed</span>
+                    </div>
+                </div>
+
+                <div class="history-item">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div class="history-icon" style="background: rgba(0, 125, 254, 0.15); color: #007dfe;">
+                            <i class="fa-solid fa-wallet"></i>
+                        </div>
+                        <div class="history-info">
+                            <p>Wallet Top-up</p>
+                            <p>Jan 21, 2026 • 10:15 AM</p>
+                        </div>
+                    </div>
+                    <div class="history-amount">
+                        <p style="color: #44bd32;">+P500.00</p>
+                        <span class="status-badge status-topup">GCash</span>
+                    </div>
+                </div>
+
+                <p style="text-align: center; font-size: 11px; color: #555; margin-top: 20px;">End of history</p>
+
+                <div class="character-card character-card-history history-character-lower">
+                    <div class="character-copy">
+                        <p class="character-eyebrow">History Assistant</p>
+                        <h3>Track every payment</h3>
+                        <p>Review your parking charges and wallet top-ups anytime.</p>
+                    </div>
+                    <div class="character-figure wallet-character-figure" aria-hidden="true">
+                        <img src="assets/char  2.png" alt="Parking assistant character" class="character-photo">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="profileScreen" class="screen hidden">
+            <header class="header">
+                <div style="width: 40px;"></div>
+                <h2 style="font-size: 18px; font-weight: 700;">Profile</h2>
+                <button class="icon-btn" style="color: #ffb400;"><i class="fa-solid fa-bell"></i></button>
+            </header>
+
+            <div class="scroll-content">
+                <div class="profile-header">
+                    <div class="profile-avatar-lg">LF</div>
+                    <div style="flex: 1;">
+                        <p style="font-weight: 700; font-size: 16px;">Pogi Ako Testing</p>
+                        <p style="font-size: 11px; color: #888;">Pogiakotesting.com</p>
+                    </div>
+                    <button class="icon-btn" style="width: 60px; font-size: 12px;" onclick="document.getElementById('editProfileOverlay').classList.remove('hidden')">Edit</button>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-card"><p>0</p><p>Reservations</p></div>
+                    <div class="stat-card"><p>P0</p><p>Spent</p></div>
+                    <div class="stat-card"><p>New</p><p>Status</p></div>
+                </div>
+
+                <div class="menu-group">
+                    <span class="section-label">Account</span>
+                    <div class="menu-tile" onclick="document.getElementById('editProfileOverlay').classList.remove('hidden')">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="menu-tile-icon"><i class="fa-solid fa-user"></i></div>
+                            <div><p style="font-size: 14px; font-weight: 600;">Edit Profile</p><p style="font-size: 10px; color: #888;">Name, email, password</p></div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: #444;"></i>
+                    </div>
+                    <div class="menu-tile" onclick="document.getElementById('vehicleOverlay').classList.remove('hidden')">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="menu-tile-icon"><i class="fa-solid fa-car"></i></div>
+                            <div><p style="font-size: 14px; font-weight: 600;">My Vehicle</p><p style="font-size: 10px; color: #888;">Plate number & vehicle type</p></div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: #444;"></i>
+                    </div>
+                </div>
+
+                <div class="menu-group">
+                    <span class="section-label">Preferences</span>
+                    <div class="menu-tile" onclick="document.getElementById('settingsOverlay').classList.remove('hidden')">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="menu-tile-icon"><i class="fa-solid fa-gear"></i></div>
+                            <div><p style="font-size: 14px; font-weight: 600;">Settings</p><p style="font-size: 10px; color: #888;">Notifications, privacy</p></div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: #444;"></i>
+                    </div>
+                    <div class="menu-tile" onclick="location.reload()">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="menu-tile-icon" style="color: #ff4d4d;"><i class="fa-solid fa-arrow-right-from-bracket"></i></div>
+                            <div><p style="font-size: 14px; font-weight: 600; color: #ff4d4d;">Logout</p><p style="font-size: 10px; color: #888;">Sign out of account</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="editProfileOverlay" class="profile-overlay hidden">
+                <header style="display: flex; align-items: center; margin-bottom: 30px;">
+                    <button class="icon-btn" onclick="document.getElementById('editProfileOverlay').classList.add('hidden')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <h2 style="margin-left: 20px; font-size: 18px;">Edit Profile</h2>
+                </header>
+
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <div class="profile-avatar-lg" style="width: 80px; height: 80px; margin: 0 auto 10px; font-size: 30px;">LF</div>
+                    <p style="color: #FFD700; font-size: 12px; font-weight: 600;">Change Photo</p>
+                </div>
+
+                <div class="input-group"><i class="fa-solid fa-user"></i><input type="text" value="Pogi Ako Testing"></div>
+                <div class="input-group"><i class="fa-solid fa-envelope"></i><input type="email" value="pogiakotesting@email.com"></div>
+                <div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" placeholder="New Password"></div>
+
+                <button class="action-btn" onclick="saveProfileChanges()">Save Changes</button>
+            </div>
+
+            <div id="vehicleOverlay" class="profile-overlay hidden">
+                <header style="display: flex; align-items: center; margin-bottom: 30px;">
+                    <button class="icon-btn" onclick="document.getElementById('vehicleOverlay').classList.add('hidden')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <h2 style="margin-left: 20px; font-size: 18px;">My Vehicle</h2>
+                </header>
+
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <div style="width: 100px; height: 60px; background: rgba(255, 255, 255, 0.1); border-radius: 15px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-car" style="font-size: 30px; color: #FFD700;"></i>
+                    </div>
+                    <p style="color: #888; font-size: 12px;">Add your vehicle details</p>
+                </div>
+
+                <div class="input-group"><i class="fa-solid fa-car"></i><input type="text" placeholder="Vehicle Make (e.g., Toyota)"></div>
+                <div class="input-group"><i class="fa-solid fa-car-side"></i><input type="text" placeholder="Vehicle Model (e.g., Vios)"></div>
+                <div class="input-group"><i class="fa-solid fa-id-card"></i><input type="text" placeholder="Plate Number (e.g., ABC 123)"></div>
+                <div class="input-group"><i class="fa-solid fa-palette"></i><input type="text" placeholder="Color (e.g., Black)"></div>
+
+                <button class="action-btn" onclick="saveVehicleInfo()">Save Vehicle</button>
+            </div>
+
+            <div id="settingsOverlay" class="profile-overlay hidden">
+                <header style="display: flex; align-items: center; margin-bottom: 30px;">
+                    <button class="icon-btn" onclick="document.getElementById('settingsOverlay').classList.add('hidden')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <h2 style="margin-left: 20px; font-size: 18px;">Settings</h2>
+                </header>
+
+                <div class="menu-group">
+                    <span class="section-label">Notifications</span>
+                    <div class="menu-tile">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="menu-tile-icon"><i class="fa-solid fa-bell"></i></div>
+                            <div><p style="font-size: 14px; font-weight: 600;">Push Notifications</p><p style="font-size: 10px; color: #888;">Receive booking alerts</p></div>
+                        </div>
+                        <label style="position: relative; display: inline-block; width: 50px; height: 24px;">
+                            <input type="checkbox" checked style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #FFD700; transition: .4s; border-radius: 24px;"></span>
+                            <span style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+                        </label>
+                    </div>
+                    <div class="menu-tile">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="menu-tile-icon"><i class="fa-solid fa-envelope"></i></div>
+                            <div><p style="font-size: 14px; font-weight: 600;">Email Notifications</p><p style="font-size: 10px; color: #888;">Receive email updates</p></div>
+                        </div>
+                        <label style="position: relative; display: inline-block; width: 50px; height: 24px;">
+                            <input type="checkbox" style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #FFD700; transition: .4s; border-radius: 24px;"></span>
+                            <span style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="menu-group">
+                    <span class="section-label">Privacy</span>
+                    <div class="menu-tile">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="menu-tile-icon"><i class="fa-solid fa-location-dot"></i></div>
+                            <div><p style="font-size: 14px; font-weight: 600;">Location Services</p><p style="font-size: 10px; color: #888;">Allow app to access location</p></div>
+                        </div>
+                        <label style="position: relative; display: inline-block; width: 50px; height: 24px;">
+                            <input type="checkbox" checked style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #FFD700; transition: .4s; border-radius: 24px;"></span>
+                            <span style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+                        </label>
+                    </div>
+                    <div class="menu-tile">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="menu-tile-icon"><i class="fa-solid fa-eye"></i></div>
+                            <div><p style="font-size: 14px; font-weight: 600;">Privacy Policy</p><p style="font-size: 10px; color: #888;">View our privacy policy</p></div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: #444;"></i>
+                    </div>
+                </div>
+
+                <div class="menu-group">
+                    <span class="section-label">About</span>
+                    <div class="menu-tile">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="menu-tile-icon"><i class="fa-solid fa-info-circle"></i></div>
+                            <div><p style="font-size: 14px; font-weight: 600;">App Version</p><p style="font-size: 10px; color: #888;">Version 1.0.0</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <nav class="bottom-nav hidden" id="mainNav">
+            <div class="nav-item active" onclick="navigate('homeScreen', this)"><i class="fa-solid fa-house"></i><span>Home</span></div>
+            <div class="nav-item" onclick="navigate('walletScreen', this)"><i class="fa-solid fa-wallet"></i><span>E-Wallet</span></div>
+            <div class="nav-item" onclick="navigate('historyScreen', this)"><i class="fa-solid fa-clock-rotate-left"></i><span>History</span></div>
+            <div class="nav-item" onclick="navigate('profileScreen', this)"><i class="fa-solid fa-user"></i><span>Profile</span></div>
+        </nav>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

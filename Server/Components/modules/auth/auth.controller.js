@@ -5,6 +5,15 @@ const jwt = require("jsonwebtoken");
 const logger = require("../../config/logger.js");
 const tokenBlacklist = require("../../services/tokenBlacklistService.js");
 
+// ─── Secure cookie options for refresh token ──────────────────────────────────
+const refreshCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  path: "/api/auth/refresh", // 🔒 Only sent to refresh endpoint
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
+
 // ─── Password complexity regex (matches user.model.js validation) ─────────────
 const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
@@ -20,6 +29,87 @@ const generateRefreshToken = (user) =>
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
   });
 
+const createAuthTokens = async (user, res) => {
+  const accessToken = generateToken(user);
+  const refreshToken = generateRefreshToken(user);
+  res.cookie("refreshToken", refreshToken, refreshCookieOptions);
+  return accessToken;
+};
+
+const createAuthResponse = (user, token) => ({
+  success: true,
+  token,
+  user: {
+    id: user._id,
+    role: user.role,
+    name: user.name || user.username,
+    username: user.username,
+    email: user.email,
+    mustChangePassword: !!user.mustChangePassword,
+  },
+  message: user.mustChangePassword
+    ? "Please change your temporary password on the next screen"
+    : "Login successful",
+});
+
+// ====================== REGISTER ======================
+const register = async (req, res, next) => {
+  try {
+    const { email, password, username, name } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    if (!PASSWORD_REGEX.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Password must be at least 8 characters and contain at least 1 uppercase, 1 lowercase, 1 number and 1 special character",
+      });
+    }
+
+    const existingUser = await User.findOne({
+      $or: [{ email: normalizedEmail }, { username: username?.toLowerCase().trim() }],
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "A user with this email or username already exists",
+      });
+    }
+
+    const newUser = await User.create({
+      email: normalizedEmail,
+      username:
+        username?.toLowerCase().trim() ||
+        normalizedEmail.split("@")[0].replace(/[^a-z0-9_]/g, ""),
+      password,
+      name: name?.trim() || undefined,
+      role: "user",
+      isActive: true,
+      mustChangePassword: false,
+    });
+
+    const accessToken = await createAuthTokens(newUser, res);
+
+    logger.info("✅ New user registered", {
+      userId: newUser._id,
+      email: newUser.email,
+    });
+
+    res.status(201).json(createAuthResponse(newUser, accessToken));
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ====================== LOGIN ======================
 const login = async (req, res, next) => {
   try {
@@ -33,7 +123,6 @@ const login = async (req, res, next) => {
     }
 
     const normalizedIdentifier = identifier.toLowerCase().trim();
-
     const user = await User.findOne({
       $or: [
         { email: normalizedIdentifier },
@@ -95,10 +184,21 @@ const login = async (req, res, next) => {
       });
     }
 
+    // 🔑 Generate tokens
+    const accessToken = generateToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    // ✅ FIX: Do NOT add the newly issued refresh token to the blacklist.
+    // The blacklist is only for revoked/rotated tokens. Adding a fresh token
+    // here caused every reload to fail with "Session revoked" because the
+    // browser would send this token on the next refresh call and get rejected.
+
+    // 🍪 Set HTTP-only refresh cookie
+    res.cookie("refreshToken", refreshToken, refreshCookieOptions);
+
     res.json({
       success: true,
-      token: generateToken(user),
-      refreshToken: generateRefreshToken(user),
+      token: accessToken,
       user: {
         id: user._id,
         role: user.role,
@@ -128,7 +228,6 @@ const changePassword = async (req, res, next) => {
       });
     }
 
-    // ✅ Explicit complexity check matching user.model.js validation
     if (!PASSWORD_REGEX.test(newPassword)) {
       return res.status(400).json({
         success: false,
@@ -155,7 +254,6 @@ const changePassword = async (req, res, next) => {
       });
     }
 
-    // ✅ Prevent reusing the same password
     const isSamePassword = await user.matchPassword(newPassword);
     if (isSamePassword) {
       return res.status(400).json({
@@ -224,9 +322,8 @@ const getMe = async (req, res, next) => {
 const logout = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
-    const { refreshToken } = req.body;
 
-    // Blacklist access token
+    // Blacklist current access token so it can't be reused after logout
     if (token) {
       try {
         const decoded = jwt.decode(token);
@@ -240,19 +337,8 @@ const logout = async (req, res, next) => {
       }
     }
 
-    // Blacklist refresh token
-    if (refreshToken) {
-      try {
-        const decoded = jwt.decode(refreshToken);
-        if (decoded?.exp) {
-          tokenBlacklist.add(refreshToken, decoded.exp);
-        }
-      } catch (e) {
-        logger.warn("Failed to decode refresh token for blacklist", {
-          error: e.message,
-        });
-      }
-    }
+    // 🍪 Clear HTTP-only refresh cookie
+    res.clearCookie("refreshToken", refreshCookieOptions);
 
     logger.info("✅ User logged out", {
       userId: req.user.id,
@@ -280,12 +366,13 @@ const logout = async (req, res, next) => {
 // ====================== REFRESH TOKEN ======================
 const refreshToken = async (req, res, next) => {
   try {
-    const { refreshToken: incomingRefreshToken } = req.body;
+    // 🍪 Read refresh token from HTTP-only cookie
+    const incomingRefreshToken = req.cookies.refreshToken;
 
     if (!incomingRefreshToken) {
       return res.status(401).json({
         success: false,
-        message: "Refresh token is required",
+        message: "No active session. Please login again.",
       });
     }
 
@@ -293,7 +380,7 @@ const refreshToken = async (req, res, next) => {
       logger.warn("Attempted refresh with blacklisted token");
       return res.status(401).json({
         success: false,
-        message: "Refresh token has been revoked. Please login again.",
+        message: "Session revoked. Please login again.",
       });
     }
 
@@ -312,7 +399,7 @@ const refreshToken = async (req, res, next) => {
       });
     }
 
-    // Blacklist old refresh token
+    // 🔒 Blacklist the OLD incoming token (rotation — prevents reuse)
     try {
       tokenBlacklist.add(incomingRefreshToken, decoded.exp);
     } catch (e) {
@@ -321,8 +408,17 @@ const refreshToken = async (req, res, next) => {
       });
     }
 
-    const newToken = generateToken(user);
+    // 🔑 Generate new tokens
+    const newAccessToken = generateToken(user);
     const newRefreshToken = generateRefreshToken(user);
+
+    // ✅ FIX: Do NOT add the newly issued refresh token to the blacklist.
+    // Only the old (rotated-out) token above should be blacklisted.
+    // Adding the new token here caused the very next refresh call to fail
+    // with "Session revoked" — breaking session persistence on every reload.
+
+    // 🍪 Set new HTTP-only refresh cookie
+    res.cookie("refreshToken", newRefreshToken, refreshCookieOptions);
 
     logger.info("✅ Token refreshed successfully", {
       userId: user._id,
@@ -343,15 +439,7 @@ const refreshToken = async (req, res, next) => {
 
     res.json({
       success: true,
-      token: newToken,
-      refreshToken: newRefreshToken,
-      user: {
-        id: user._id,
-        role: user.role,
-        name: user.name || user.username,
-        username: user.username,
-        email: user.email,
-      },
+      token: newAccessToken,
     });
   } catch (error) {
     if (
@@ -361,7 +449,7 @@ const refreshToken = async (req, res, next) => {
       logger.warn("Refresh token failed", { error: error.message });
       return res.status(401).json({
         success: false,
-        message: "Refresh token expired or invalid",
+        message: "Session expired. Please login again.",
       });
     }
     next(error);
@@ -370,6 +458,7 @@ const refreshToken = async (req, res, next) => {
 
 module.exports = {
   login,
+  register,
   changePassword,
   getMe,
   logout,

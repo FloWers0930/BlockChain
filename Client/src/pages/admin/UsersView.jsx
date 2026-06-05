@@ -56,7 +56,7 @@ export default function UsersView() {
       setUsers(appUsers);
       setError(null);
     } catch (err) {
-      if (process.env.NODE_ENV === "development")
+      if (import.meta.env.DEV)
         console.error("Failed to fetch users:", err);
       setError("Failed to load app users. Please check your connection.");
     } finally {
@@ -72,7 +72,7 @@ export default function UsersView() {
       const { data } = await api.get(`/admin/audit?userId=${userId}&limit=30`);
       setActivities(data.activities || data.audits || data.data || []);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") console.error(err);
+      if (import.meta.env.DEV) console.error(err);
       setActivities([]);
     } finally {
       setActivityLoading(false);
@@ -710,3 +710,4 @@ export default function UsersView() {
     </div>
   );
 }
+

@@ -1,6 +1,4 @@
 // backend/src/services/notificationService.js
-// Real-time notification service using Socket.IO (In-Memory mode)
-
 const logger = require("../config/logger.js");
 
 class NotificationService {
@@ -9,36 +7,43 @@ class NotificationService {
     logger.info("✅ NotificationService running in In-Memory Socket.IO mode");
   }
 
-  // ====================== EMIT DIRECTLY VIA SOCKET.IO ======================
   publish(channel, payload) {
     logger.info(`📤 EMIT → ${channel}`, { module: "notification" });
 
     switch (channel) {
+      // ── Global broadcast ──────────────────────────────────────────────────
       case "notifications:global":
         this.io.emit("notification", payload);
         break;
 
+      // ── Audit room — admins watching audit trail ──────────────────────────
       case "notifications:audit":
-        this.io.to("audit-room").emit("auditLogUpdated", payload);
+        this.io.to("admin:audit").emit("auditLogUpdated", payload);
         break;
 
+      // ── Booking events ────────────────────────────────────────────────────
+      // Mobile user gets their own notification
+      // Admin gets notified for every booking event
       case "notifications:booking":
-        if (payload.userId)
+        if (payload.userId) {
           this.io.to(`user:${payload.userId}`).emit("bookingUpdated", payload);
-        if (payload.ownerId)
-          this.io
-            .to(`owner:${payload.ownerId}`)
-            .emit("bookingUpdated", payload);
+        }
+        this.io.to("admin:notifications").emit("bookingUpdated", payload);
         break;
 
+      // ── Spot events — admin notified ──────────────────────────────────────
       case "notifications:spot":
-        if (payload.ownerId)
-          this.io.to(`owner:${payload.ownerId}`).emit("spotUpdated", payload);
+        this.io.to("admin:notifications").emit("spotUpdated", payload);
         break;
 
+      // ── Staff events — admin notified ─────────────────────────────────────
       case "notifications:staff":
-        if (payload.ownerId)
-          this.io.to(`owner:${payload.ownerId}`).emit("staffUpdated", payload);
+        this.io.to("admin:notifications").emit("staffUpdated", payload);
+        break;
+
+      // ── User events — admin notified ──────────────────────────────────────
+      case "notifications:user":
+        this.io.to("admin:notifications").emit("userUpdated", payload);
         break;
 
       default:
@@ -46,7 +51,8 @@ class NotificationService {
     }
   }
 
-  // ====================== PUBLIC CONVENIENCE METHODS ======================
+  // ── Convenience methods ───────────────────────────────────────────────────
+
   async sendGlobalNotification(notification) {
     return this.publish("notifications:global", {
       type: "global",
@@ -83,6 +89,14 @@ class NotificationService {
     });
   }
 
+  async sendUserNotification(data) {
+    return this.publish("notifications:user", {
+      type: "user",
+      timestamp: new Date(),
+      ...data,
+    });
+  }
+
   getStatus() {
     return {
       pubSubEnabled: false,
@@ -92,4 +106,3 @@ class NotificationService {
 }
 
 module.exports = NotificationService;
-

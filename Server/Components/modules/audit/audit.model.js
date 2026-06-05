@@ -18,9 +18,9 @@ const auditSchema = new mongoose.Schema(
     userRole: {
       type: String,
       required: true,
-      enum: ["admin", "owner", "user", "staff"],
+      // ✅ Added "support" and "manager" to match controller logic
+      enum: ["admin", "owner", "user", "staff", "support", "manager"],
     },
-
     action: {
       type: String,
       required: true,
@@ -45,15 +45,14 @@ const auditSchema = new mongoose.Schema(
         "staff_updated",
         "staff_deleted",
         "support_reply_sent",
+        "support_ticket_created", // ✅ Added for completeness
       ],
     },
-
     details: {
       type: String,
       required: true,
       trim: true,
     },
-
     oldValue: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
@@ -62,10 +61,8 @@ const auditSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },
-
-    ipAddress: String,
-    userAgent: String,
-
+    ipAddress: { type: String, default: null },
+    userAgent: { type: String, default: null },
     isCritical: {
       type: Boolean,
       default: false,
@@ -76,29 +73,35 @@ const auditSchema = new mongoose.Schema(
   },
 );
 
-// Make audit records immutable
+// ── Immutability Guards ───────────────────────────────────────────────────────
+// Centralized error function for blocked operations
+const blockModification = function (next) {
+  next(
+    new Error("Audit records are immutable and cannot be modified or deleted"),
+  );
+};
+
+// Block updates on existing documents
 auditSchema.pre("save", function (next) {
   if (this.isNew) return next();
   next(new Error("Audit records are immutable and cannot be modified"));
 });
 
-auditSchema.pre("findOneAndUpdate", function (next) {
-  next(new Error("Audit records cannot be updated"));
-});
+// ✅ Block ALL update and delete methods
+auditSchema.pre("findOneAndUpdate", blockModification);
+auditSchema.pre("updateOne", blockModification);
+auditSchema.pre("updateMany", blockModification);
+auditSchema.pre("deleteOne", blockModification);
+auditSchema.pre("deleteMany", blockModification);
+auditSchema.pre("findOneAndDelete", blockModification);
+auditSchema.pre("findOneAndReplace", blockModification);
 
-auditSchema.pre("updateOne", function (next) {
-  next(new Error("Audit records cannot be updated"));
-});
-
-auditSchema.pre("deleteOne", function (next) {
-  next(new Error("Audit records cannot be deleted"));
-});
-
-// Indexes for fast queries
+// ── Indexes for fast queries ──────────────────────────────────────────────────
 auditSchema.index({ createdAt: -1 });
 auditSchema.index({ action: 1, createdAt: -1 });
-auditSchema.index({ isCritical: 1 });
 auditSchema.index({ user: 1, createdAt: -1 });
+// ✅ Compound index for faster critical log queries
+auditSchema.index({ isCritical: 1, createdAt: -1 });
 
 const Audit = mongoose.model("Audit", auditSchema);
 

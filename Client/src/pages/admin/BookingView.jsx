@@ -65,7 +65,7 @@ export default function BookingsView() {
       setBookings(data.bookings || []);
       setError(null);
     } catch (err) {
-      if (process.env.NODE_ENV === "development")
+      if (import.meta.env.DEV)
         console.error("[Bookings] fetch error:", err);
       setError("Failed to load bookings. Please check your connection.");
     } finally {
@@ -428,3 +428,4 @@ export default function BookingsView() {
     </div>
   );
 }
+

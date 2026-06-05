@@ -1,87 +1,30 @@
-// src/api/token.js
-// Centralized auth token management with JWT validation
+// In-memory auth store (XSS-safe)
+// Tokens are never written to disk. Session persistence relies on the HTTP-only refresh cookie.
 
-const AUTH_KEYS = {
-  TOKEN: "token",
-  REFRESH_TOKEN: "refreshToken",
-  USER: "user",
-  LAST_LOGIN: "lastLogin",
-};
+let _accessToken = null;
+let _user = null;
 
-// ─── Validation schema ────────────────────────────────────────────────────────
-const validateAuthData = (data) => {
-  if (!data || typeof data !== "object") return false;
-  if (!data.user || typeof data.user !== "object") return false;
-  if (!data.user.id || !data.user.email || !data.user.role) return false;
-  if (data.token && typeof data.token !== "string") return false;
-  if (data.refreshToken && typeof data.refreshToken !== "string") return false;
-  return true;
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const safeParseJSON = (value) => {
-  try {
-    return value ? JSON.parse(value) : null;
-  } catch {
-    return null;
-  }
-};
-
-const decodeJwtPayload = (token) => {
-  try {
-    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(base64));
-  } catch {
-    return null;
-  }
-};
-
-// ─── Storage writers ──────────────────────────────────────────────────────────
 export const setAuthData = (data) => {
-  if (!validateAuthData(data)) {
-    console.error("Invalid auth data structure", data);
-    return false;
-  }
-
-  if (data.token) localStorage.setItem(AUTH_KEYS.TOKEN, data.token);
-  if (data.refreshToken)
-    localStorage.setItem(AUTH_KEYS.REFRESH_TOKEN, data.refreshToken);
-  if (data.user)
-    localStorage.setItem(AUTH_KEYS.USER, JSON.stringify(data.user));
-  localStorage.setItem(AUTH_KEYS.LAST_LOGIN, new Date().toISOString());
-  return true;
+  if (data?.token) _accessToken = data.token;
+  if (data?.user) _user = data.user;
 };
 
 export const clearAuthData = () => {
-  Object.values(AUTH_KEYS).forEach((key) => localStorage.removeItem(key));
+  _accessToken = null;
+  _user = null;
 };
 
-// ─── Storage readers ──────────────────────────────────────────────────────────
-export const getToken = () => localStorage.getItem(AUTH_KEYS.TOKEN);
+export const getToken = () => _accessToken;
+export const getStoredUser = () => _user;
+export const getUserRole = () => _user?.role ?? null;
+export const getUserName = () => _user?.name || _user?.username || "";
 
-export const getRefreshToken = () =>
-  localStorage.getItem(AUTH_KEYS.REFRESH_TOKEN);
+// ✅ FIX: Only check token — _user is populated AFTER getMe() returns.
+// On reload: token is set by the refresh call, but _user is still null at that point.
+// The old check (!!_accessToken && !!_user) caused getMe() in authApi.js to bail
+// early and return null, which then triggered clearAuth() and wiped the valid session.
+export const isAuthenticated = () => !!_accessToken;
 
-export const isAuthenticated = () => {
-  const token = getToken();
-  if (!token) return false;
+export const getLastLogin = () =>
+  _user?.lastLogin ? new Date(_user.lastLogin) : null;
 
-  const payload = decodeJwtPayload(token);
-  if (!payload?.exp) return true; // Non-JWT token — trust its presence
-  return payload.exp * 1000 > Date.now();
-};
-
-export const getStoredUser = () =>
-  safeParseJSON(localStorage.getItem(AUTH_KEYS.USER));
-
-export const getUserRole = () => getStoredUser()?.role ?? null;
-
-export const getUserName = () => {
-  const user = getStoredUser();
-  return user?.name || user?.username || "";
-};
-
-export const getLastLogin = () => {
-  const raw = localStorage.getItem(AUTH_KEYS.LAST_LOGIN);
-  return raw ? new Date(raw) : null;
-};

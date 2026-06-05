@@ -188,3 +188,4 @@ export const useAnimatedCounter = (target, options = {}) => {
     reset, // Reset to initial state
   };
 };
+

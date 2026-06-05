@@ -353,7 +353,7 @@ export default function AdminDashboardView() {
       setChartData(days);
       setError(null);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") {
+      if (import.meta.env.DEV) {
         console.error("Admin dashboard fetch failed:", err);
       }
       setError("Failed to load dashboard data. Please check your connection.");
@@ -765,3 +765,4 @@ export default function AdminDashboardView() {
     </div>
   );
 }
+

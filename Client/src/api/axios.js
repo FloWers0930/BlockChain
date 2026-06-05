@@ -1,18 +1,9 @@
-// src/api/axios.js
 import axios from "axios";
-import {
-  getToken,
-  getRefreshToken,
-  setAuthData,
-  clearAuthData,
-} from "./token.js";
+import { getToken, setAuthData, clearAuthData } from "./token.js";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-const SAFE_METHODS = new Set(["get", "head", "options"]);
-const CSRF_COOKIE_NAME = "csrfToken";
+// 🔑 Use relative path for Vite dev proxy. Falls back to env var in production.
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://statio-nexus-server-1.onrender.com";
 
-// ── Request timeout configuration ─────────────────────────────────────────────
 const REQUEST_TIMEOUT = 15000;
 const SLOW_REQUEST_THRESHOLD = 5000;
 const REQUEST_ABORT_TIMEOUT = 30000;
@@ -21,10 +12,10 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
   timeout: REQUEST_TIMEOUT,
-  withCredentials: true,
+  withCredentials: true, // 🔑 Sends HTTP-only refresh cookie automatically
 });
 
-// ── Request timeout handler ───────────────────────────────────────────────────
+// ── Request Tracking & Timeout ────────────────────────────────────────────────
 let requestCounter = 0;
 const activeRequests = new Map();
 
@@ -42,10 +33,29 @@ api.interceptors.request.use(
     config._requestId = requestId;
     config._startTime = Date.now();
 
+    // 🔑 Attach access token from memory
+    const token = getToken();
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+
     return config;
   },
   (error) => Promise.reject(error),
 );
+
+// ── Response Interceptor (Timing + 401 Refresh Queue + Password Enforcement) ──
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((p) => (error ? p.reject(error) : p.resolve(token)));
+  failedQueue = [];
+};
+
+const redirectToLogin = () => {
+  clearAuthData();
+  // ✅ Dispatch event so AuthProvider updates state → React Router handles redirect softly
+  window.dispatchEvent(new Event("auth-changed"));
+};
 
 api.interceptors.response.use(
   (response) => {
@@ -54,23 +64,22 @@ api.interceptors.response.use(
 
     if (import.meta.env.DEV && duration > SLOW_REQUEST_THRESHOLD) {
       console.warn(
-        `⚠️ Slow request: ${response.config.method.toUpperCase()} ${response.config.url} took ${duration}ms`,
+        `⚠️ Slow request: ${response.config.method?.toUpperCase()} ${
+          response.config.url
+        } took ${duration}ms`,
       );
     }
 
     if (activeRequests.has(_requestId)) {
-      const { timeoutId } = activeRequests.get(_requestId);
-      clearTimeout(timeoutId);
+      clearTimeout(activeRequests.get(_requestId).timeoutId);
       activeRequests.delete(_requestId);
     }
-
     return response;
   },
-  (error) => {
+  async (error) => {
     const { config } = error;
     if (config?._requestId && activeRequests.has(config._requestId)) {
-      const { timeoutId } = activeRequests.get(config._requestId);
-      clearTimeout(timeoutId);
+      clearTimeout(activeRequests.get(config._requestId).timeoutId);
       activeRequests.delete(config._requestId);
     }
 
@@ -82,80 +91,21 @@ api.interceptors.response.use(
       );
     }
 
-    return Promise.reject(error);
-  },
-);
-
-// ── Refresh queue ─────────────────────────────────────────────────────────────
-let isRefreshing = false;
-let failedQueue = [];
-let csrfBootstrapPromise = null;
-
-const processQueue = (error, token = null) => {
-  failedQueue.forEach((p) => (error ? p.reject(error) : p.resolve(token)));
-  failedQueue = [];
-};
-
-const redirectToLogin = () => {
-  clearAuthData();
-  window.location.href = "/login?expired=true";
-};
-
-const readCookie = (name) => {
-  if (typeof document === "undefined") return "";
-  const found = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith(`${name}=`));
-  if (!found) return "";
-  return decodeURIComponent(found.split("=")[1] || "");
-};
-
-const ensureCsrfToken = async () => {
-  const existing = readCookie(CSRF_COOKIE_NAME);
-  if (existing) return existing;
-
-  if (!csrfBootstrapPromise) {
-    csrfBootstrapPromise = axios
-      .get(`${API_BASE_URL}/csrf-token`, {
-        withCredentials: true,
-        timeout: 10000,
-      })
-      .finally(() => {
-        csrfBootstrapPromise = null;
-      });
-  }
-
-  await csrfBootstrapPromise;
-  return readCookie(CSRF_COOKIE_NAME);
-};
-
-// ── Request interceptor — attach Bearer token ─────────────────────────────────
-api.interceptors.request.use(
-  async (config) => {
-    const token = getToken();
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-    config.withCredentials = true;
-
-    const method = (config.method || "get").toLowerCase();
-    if (!SAFE_METHODS.has(method)) {
-      const csrfToken = await ensureCsrfToken();
-      if (csrfToken) config.headers["x-csrf-token"] = csrfToken;
+    // ✅ NEW: Catch 403 with mustChangePassword flag from backend middleware
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.mustChangePassword
+    ) {
+      window.location.replace("/change-password");
+      return Promise.reject(error);
     }
 
-    return config;
-  },
-  (error) => Promise.reject(error),
-);
-
-// ── Response interceptor — handle 401 with token refresh ─────────────────────
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
     const originalRequest = error.config;
-
+    // Don't retry auth endpoints to avoid loops
     if (
-      originalRequest.url?.includes("/auth/login") ||
-      originalRequest.url?.includes("/auth/refresh")
+      originalRequest?.url?.includes("/auth/login") ||
+      originalRequest?.url?.includes("/auth/refresh") ||
+      originalRequest?.url?.includes("/change-password") // ✅ Don't retry password change itself
     ) {
       return Promise.reject(error);
     }
@@ -177,42 +127,27 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const storedRefreshToken = getRefreshToken();
-      if (!storedRefreshToken) {
-        processQueue(new Error("No refresh token available"));
-        redirectToLogin();
-        return Promise.reject(new Error("No refresh token available"));
-      }
-
-      const csrfToken = await ensureCsrfToken();
-      const refreshHeaders = { "Content-Type": "application/json" };
-      if (csrfToken) refreshHeaders["x-csrf-token"] = csrfToken;
-
+      // 🔑 Browser sends refreshToken cookie automatically. Use raw axios to avoid interceptor loops.
       const { data } = await axios.post(
         `${API_BASE_URL}/auth/refresh`,
-        { refreshToken: storedRefreshToken },
-        { headers: refreshHeaders, withCredentials: true },
+        {},
+        { withCredentials: true },
       );
 
-      if (!data?.token || !data?.user) {
+      if (!data?.token) {
         processQueue(new Error("Invalid refresh response"));
         redirectToLogin();
         return Promise.reject(new Error("Session expired"));
       }
 
-      const isValid = setAuthData(data);
-      if (!isValid) {
-        processQueue(new Error("Invalid auth data"));
-        redirectToLogin();
-        return Promise.reject(new Error("Failed to refresh session"));
-      }
-
+      // 🔒 Store new token in memory
+      setAuthData({ token: data.token });
       processQueue(null, data.token);
       originalRequest.headers.Authorization = `Bearer ${data.token}`;
       return api(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError);
-      redirectToLogin();
+      redirectToLogin(); // Triggers soft logout
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;
@@ -221,3 +156,4 @@ api.interceptors.response.use(
 );
 
 export default api;
+

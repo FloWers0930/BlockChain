@@ -4,6 +4,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../modules/shared/user.model.js");
 const logger = require("../config/logger.js");
+
 const Authenticate = async (req, res, next) => {
   try {
     let token;
@@ -21,7 +22,6 @@ const Authenticate = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     const userId = decoded.id || decoded.userId || decoded._id;
 
     if (!userId) {
@@ -56,6 +56,7 @@ const Authenticate = async (req, res, next) => {
       email: user.email,
       username: user.username,
       name: user.name,
+      mustChangePassword: user.mustChangePassword, // ✅ Added for password enforcement
     };
 
     next();
@@ -98,19 +99,18 @@ const restrictTo = (...roles) => {
     }
 
     if (!roles.includes(req.user.role)) {
-      // Include stack location so we can identify which restrictTo() is firing for this path
-      const stackLine =
-        new Error().stack?.split("\n")?.slice(1, 6)?.join(" | ") || "no-stack";
-
-      logger.warn(
-        `Authorization denied | path=${req.path} | requiredRoles=${roles.join(
-          ","
-        )} | actualRole=${req.user?.role} | userId=${req.user?.id} | ${stackLine}`
-      );
+      logger.warn("Authorization denied", {
+        path: req.path,
+        requiredRoles: roles,
+        actualRole: req.user?.role,
+        userId: req.user?.id,
+      });
 
       return res.status(403).json({
         success: false,
-        message: `Access denied. Only ${roles.join(", ")} can perform this action.`,
+        message: `Access denied. Only ${roles.join(
+          ", ",
+        )} can perform this action.`,
       });
     }
 
@@ -118,8 +118,33 @@ const restrictTo = (...roles) => {
   };
 };
 
-module.exports = {
-  Authenticate: Authenticate,
-  restrictTo,
+// ✅ NEW: Enforce password change for first-time users
+const requirePasswordChange = (req, res, next) => {
+  if (!req.user) return next();
+
+  if (req.user.mustChangePassword) {
+    // Allow ONLY these critical routes
+    const allowedPaths = ["/change-password", "/me", "/profile", "/logout"];
+
+    // Check if current request matches an allowed route
+    const isAllowed = allowedPaths.some(
+      (path) => req.path.includes(path) || req.originalUrl.includes(path),
+    );
+
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: "Password change required before accessing this resource.",
+        mustChangePassword: true, // 🔑 Flag for frontend to redirect
+      });
+    }
+  }
+
+  next();
 };
 
+module.exports = {
+  Authenticate,
+  restrictTo,
+  requirePasswordChange, // ✅ Export new middleware
+};

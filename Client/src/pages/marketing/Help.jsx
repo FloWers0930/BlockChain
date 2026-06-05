@@ -244,7 +244,7 @@ export default function Help() {
           <div className="hidden md:block absolute top-10 left-[12%] right-[12%] h-0.5 bg-gradient-to-r from-indigo-200 via-purple-200 to-pink-200" />
 
           <div className="grid md:grid-cols-4 gap-8 relative">
-            {steps.map((step, idx) => (
+            {steps.map((step) => (
               <div key={step.num} className="relative text-center">
                 <div className="relative inline-flex items-center justify-center w-20 h-20 bg-white border-2 border-slate-200 rounded-full mb-5 shadow-lg shadow-slate-200/50 z-10">
                   <span className="text-2xl font-bold bg-gradient-to-br from-indigo-600 to-purple-600 bg-clip-text text-transparent">
@@ -566,3 +566,4 @@ export default function Help() {
     </div>
   );
 }
+

@@ -1,50 +1,67 @@
 // backend/src/modules/admin/admin.controller.js
-// Admin controller - dashboard, users, spots, bookings, audit, and settings
-
 const mongoose = require("mongoose");
 const User = require("../shared/user.model.js");
 const { z } = require("../../middlewares/validate.js");
 const StationSpot = require("../shared/stationSpot.model.js");
 const Booking = require("../shared/booking.model.js");
 const Audit = require("../audit/audit.model.js");
-const Settings = require("../shared/settings.model.js");
-
-// Escape regex special characters to prevent ReDoS attacks
+// Helper: Escape regex special characters
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // ==================== DASHBOARD STATS ====================
 const getDashboardStats = async (req, res, next) => {
   try {
+    // Define queries
     const userQuery = { role: { $nin: ["admin", "owner", "staff"] } };
-
+    const spotBaseQuery = { isActive: true, deletedAt: { $exists: false } };
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     sevenDaysAgo.setHours(0, 0, 0, 0);
 
+    // Fetch all stats in parallel
     const [
-      users,
-      spots,
-      bookings,
-      revenue,
+      usersCount,
+      totalSpots,
+      totalBookings,
+      revenueData,
       availableSpots,
       occupiedSpots,
       activeBookings,
       revenueChart,
       topLocations,
     ] = await Promise.all([
+      // 1. User count (excluding staff/admin/owners)
       User.countDocuments(userQuery),
-      StationSpot.countDocuments({ isActive: true }),
-      Booking.countDocuments(),
+
+      // 2. Total active spots
+      StationSpot.countDocuments(spotBaseQuery),
+
+      // 3. Total valid bookings (non-cancelled)
+      Booking.countDocuments({ status: { $ne: "cancelled" } }),
+
+      // 4. Total Revenue
       Booking.aggregate([
-        { $match: { paymentStatus: "paid" } },
+        { $match: { paymentStatus: "paid", status: { $ne: "cancelled" } } },
         { $group: { _id: null, total: { $sum: "$totalCost" } } },
       ]),
-      StationSpot.countDocuments({ status: "available", isActive: true }),
-      StationSpot.countDocuments({ status: "occupied", isActive: true }),
+
+      // 5. Available Spots
+      StationSpot.countDocuments({ ...spotBaseQuery, status: "available" }),
+
+      // 6. Occupied Spots
+      StationSpot.countDocuments({ ...spotBaseQuery, status: "occupied" }),
+
+      // 7. Active Bookings
       Booking.countDocuments({ status: "active" }),
+
+      // 8. Revenue Chart (Last 7 days)
       Booking.aggregate([
         {
-          $match: { paymentStatus: "paid", createdAt: { $gte: sevenDaysAgo } },
+          $match: {
+            paymentStatus: "paid",
+            status: { $ne: "cancelled" },
+            createdAt: { $gte: sevenDaysAgo },
+          },
         },
         {
           $group: {
@@ -54,8 +71,10 @@ const getDashboardStats = async (req, res, next) => {
         },
         { $sort: { _id: 1 } },
       ]),
+
+      // 9. Top Locations by Revenue
       Booking.aggregate([
-        { $match: { paymentStatus: "paid" } },
+        { $match: { paymentStatus: "paid", status: { $ne: "cancelled" } } },
         {
           $lookup: {
             from: "stationspots",
@@ -65,6 +84,7 @@ const getDashboardStats = async (req, res, next) => {
           },
         },
         { $unwind: { path: "$spot", preserveNullAndEmptyArrays: true } },
+        { $match: { "spot.deletedAt": { $exists: false } } },
         {
           $group: {
             _id: { $ifNull: ["$spot.location", "Unknown"] },
@@ -80,10 +100,10 @@ const getDashboardStats = async (req, res, next) => {
     res.json({
       success: true,
       stats: {
-        users,
-        spots,
-        bookings,
-        revenue: revenue[0]?.total || 0,
+        users: usersCount,
+        spots: totalSpots,
+        bookings: totalBookings,
+        revenue: revenueData[0]?.total || 0,
         availableSpots,
         occupiedSpots,
         activeBookings,
@@ -96,13 +116,15 @@ const getDashboardStats = async (req, res, next) => {
   }
 };
 
-// ==================== GET ALL USERS ====================
+// ==================== USER MANAGEMENT ====================
+
 const getAllUsers = async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(parseInt(req.query.limit) || 20, 50);
     const skip = (page - 1) * limit;
 
+    // Filter out platform staff
     const query = { role: { $nin: ["admin", "owner", "staff"] } };
 
     const [users, total] = await Promise.all([
@@ -124,10 +146,7 @@ const getAllUsers = async (req, res, next) => {
   }
 };
 
-// ==================== UPDATE USER STATUS ====================
-const updateUserStatusSchema = z.object({
-  isActive: z.boolean(),
-});
+const updateUserStatusSchema = z.object({ isActive: z.boolean() });
 
 const updateUserStatus = async (req, res, next) => {
   try {
@@ -139,8 +158,11 @@ const updateUserStatus = async (req, res, next) => {
         .json({ success: false, message: "isActive must be a boolean" });
     }
 
+    const targetId = req.params.id;
+
+    // Find old state for audit logging
     const oldUser = await User.findOne({
-      _id: req.params.id,
+      _id: targetId,
       role: { $nin: ["admin", "owner", "staff"] },
     }).select("name email isActive role");
 
@@ -151,12 +173,14 @@ const updateUserStatus = async (req, res, next) => {
       });
     }
 
+    // Update user
     const user = await User.findByIdAndUpdate(
-      req.params.id,
+      targetId,
       { isActive },
       { new: true, runValidators: true },
-    );
+    ).select("-password -passwordHash -salt -twoFactorSecret");
 
+    // Audit Log
     const emitAuditLog = req.app.locals?.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
@@ -171,8 +195,19 @@ const updateUserStatus = async (req, res, next) => {
       });
     }
 
-    const io = req.app.locals?.io;
-    if (io) io.emit("userUpdated", { userId: user._id, isActive });
+    // Real-time Notification
+    const notificationService = req.app.locals?.notificationService;
+    if (notificationService) {
+      notificationService.sendUserNotification({
+        type: "userStatusChanged",
+        userId: user._id,
+        email: user.email,
+        isActive,
+        adminMessage: `User ${user.email} has been ${
+          isActive ? "activated" : "deactivated"
+        }`,
+      });
+    }
 
     res.json({ success: true, user });
   } catch (error) {
@@ -180,7 +215,8 @@ const updateUserStatus = async (req, res, next) => {
   }
 };
 
-// ==================== GET ALL STATION SPOTS ====================
+// ==================== SPOT MANAGEMENT ====================
+
 const getAllSpots = async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -189,6 +225,7 @@ const getAllSpots = async (req, res, next) => {
 
     const [spots, total] = await Promise.all([
       StationSpot.aggregate([
+        { $match: { deletedAt: { $exists: false } } },
         {
           $lookup: {
             from: "users",
@@ -201,6 +238,7 @@ const getAllSpots = async (req, res, next) => {
         {
           $project: {
             "owner.password": 0,
+            "owner.passwordHash": 0,
             "owner.refreshToken": 0,
             "owner.twoFactorSecret": 0,
           },
@@ -209,7 +247,7 @@ const getAllSpots = async (req, res, next) => {
         { $skip: skip },
         { $limit: limit },
       ]),
-      StationSpot.countDocuments(),
+      StationSpot.countDocuments({ deletedAt: { $exists: false } }),
     ]);
 
     res.json({
@@ -222,7 +260,8 @@ const getAllSpots = async (req, res, next) => {
   }
 };
 
-// ==================== GET ALL BOOKINGS ====================
+// ==================== BOOKING MANAGEMENT ====================
+
 const getAllBookings = async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -252,6 +291,7 @@ const getAllBookings = async (req, res, next) => {
         {
           $project: {
             "user.password": 0,
+            "user.passwordHash": 0,
             "user.refreshToken": 0,
             "user.twoFactorSecret": 0,
           },
@@ -273,7 +313,8 @@ const getAllBookings = async (req, res, next) => {
   }
 };
 
-// ==================== GET AUDIT LOG ====================
+// ==================== AUDIT LOGS ====================
+
 const getAuditLog = async (req, res, next) => {
   try {
     const {
@@ -289,13 +330,11 @@ const getAuditLog = async (req, res, next) => {
 
     const match = {};
 
-    // ✅ Validate userId before using as ObjectId
     if (userId) {
       if (!mongoose.Types.ObjectId.isValid(userId)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid userId format",
-        });
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid userId format" });
       }
       match.user = new mongoose.Types.ObjectId(userId);
     }
@@ -312,7 +351,6 @@ const getAuditLog = async (req, res, next) => {
 
     if (fromDate || toDate) {
       match.createdAt = {};
-
       const tzOffset = timezone ? parseInt(timezone) : 0;
       const offsetMs = tzOffset * 60 * 1000;
 
@@ -321,7 +359,6 @@ const getAuditLog = async (req, res, next) => {
         from.setHours(0, 0, 0, 0);
         match.createdAt.$gte = new Date(from.getTime() - offsetMs);
       }
-
       if (toDate) {
         const to = new Date(toDate);
         to.setHours(23, 59, 59, 999);
@@ -329,7 +366,6 @@ const getAuditLog = async (req, res, next) => {
       }
     }
 
-    // ✅ Cap limit to prevent memory exhaustion
     const safeLimit = Math.min(parseInt(limit) || 100, 500);
 
     const activities = await Audit.aggregate([
@@ -346,6 +382,7 @@ const getAuditLog = async (req, res, next) => {
       {
         $project: {
           "user.password": 0,
+          "user.passwordHash": 0,
           "user.refreshToken": 0,
           "user.twoFactorSecret": 0,
         },
@@ -362,7 +399,6 @@ const getAuditLog = async (req, res, next) => {
 
 // ==================== SETTINGS ====================
 
-// ✅ Added Zod schema for settings validation
 const updateSettingsSchema = z.object({
   appName: z.string().min(1).max(100).optional(),
   supportEmail: z.string().email().optional(),
@@ -395,8 +431,8 @@ const updateSettings = async (req, res, next) => {
 
     const oldSettings = await Settings.findOne();
 
-    let settings = oldSettings;
-    if (!settings) {
+    let settings;
+    if (!oldSettings) {
       settings = await Settings.create({
         appName,
         supportEmail,
@@ -406,15 +442,20 @@ const updateSettings = async (req, res, next) => {
         maintenanceMode,
       });
     } else {
-      settings.appName = appName || settings.appName;
-      settings.supportEmail = supportEmail || settings.supportEmail;
-      settings.currency = currency || settings.currency;
-      settings.autoCancel = autoCancel ?? settings.autoCancel;
-      settings.waitlist = waitlist ?? settings.waitlist;
-      settings.maintenanceMode = maintenanceMode ?? settings.maintenanceMode;
-      await settings.save();
+      // Update only provided fields
+      if (appName !== undefined) oldSettings.appName = appName;
+      if (supportEmail !== undefined) oldSettings.supportEmail = supportEmail;
+      if (currency !== undefined) oldSettings.currency = currency;
+      if (autoCancel !== undefined) oldSettings.autoCancel = autoCancel;
+      if (waitlist !== undefined) oldSettings.waitlist = waitlist;
+      if (maintenanceMode !== undefined)
+        oldSettings.maintenanceMode = maintenanceMode;
+
+      await oldSettings.save();
+      settings = oldSettings;
     }
 
+    // Audit Log
     const emitAuditLog = req.app.locals?.emitAuditLog;
     if (emitAuditLog) {
       emitAuditLog({
@@ -429,8 +470,15 @@ const updateSettings = async (req, res, next) => {
       });
     }
 
-    const io = req.app.locals?.io;
-    if (io) io.emit("settingsUpdated", settings);
+    // Notification
+    const notificationService = req.app.locals?.notificationService;
+    if (notificationService) {
+      notificationService.sendGlobalNotification({
+        type: "settingsUpdated",
+        settings,
+        adminMessage: "System settings have been updated",
+      });
+    }
 
     res.json({
       success: true,

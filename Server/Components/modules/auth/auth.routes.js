@@ -5,6 +5,7 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const {
   login,
+  register,
   getMe,
   logout,
   changePassword,
@@ -41,6 +42,7 @@ const refreshLimiter = rateLimit({
 
 // ====================== PUBLIC ROUTES ======================
 router.post("/login", loginLimiter, login);
+router.post("/register", loginLimiter, register);
 router.post("/refresh", refreshLimiter, refreshToken);
 
 // ====================== PROTECTED ROUTES ======================

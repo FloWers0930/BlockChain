@@ -60,7 +60,7 @@ export const useOwnerData = (token, options = {}) => {
         cacheRef.current.timestamp &&
         Date.now() - cacheRef.current.timestamp < staleTime
       ) {
-        if (process.env.NODE_ENV === "development") {
+        if (import.meta.env.DEV) {
           console.log("[useOwnerData] Returning cached data");
         }
         // Still refresh in background if enabled
@@ -72,7 +72,7 @@ export const useOwnerData = (token, options = {}) => {
 
       // Prevent duplicate simultaneous requests (request deduplication)
       if (fetchPromiseRef.current && !isManualRefetch) {
-        if (process.env.NODE_ENV === "development") {
+        if (import.meta.env.DEV) {
           console.log("[useOwnerData] Deduplicating request");
         }
         return fetchPromiseRef.current;
@@ -133,7 +133,7 @@ export const useOwnerData = (token, options = {}) => {
             onSuccess(result);
           }
 
-          if (process.env.NODE_ENV === "development") {
+          if (import.meta.env.DEV) {
             console.log("[useOwnerData] Fetch successful", {
               timestamp: new Date().toISOString(),
               hasData: !!result,
@@ -144,7 +144,7 @@ export const useOwnerData = (token, options = {}) => {
         } catch (err) {
           // Ignore abort errors (expected during cleanup)
           if (err.name === "AbortError") {
-            if (process.env.NODE_ENV === "development") {
+            if (import.meta.env.DEV) {
               console.log("[useOwnerData] Request aborted");
             }
             return null;
@@ -155,7 +155,7 @@ export const useOwnerData = (token, options = {}) => {
             retryCountRef.current += 1;
             const delay = retryDelay * Math.pow(2, retryCountRef.current - 1); // exponential backoff
 
-            if (process.env.NODE_ENV === "development") {
+            if (import.meta.env.DEV) {
               console.warn(
                 `[useOwnerData] Retry ${retryCountRef.current}/${retryCount} after ${delay}ms`,
                 err?.message,
@@ -174,7 +174,7 @@ export const useOwnerData = (token, options = {}) => {
             err?.message ||
             "Failed to fetch owner analytics data";
 
-          if (process.env.NODE_ENV === "development") {
+          if (import.meta.env.DEV) {
             console.error(
               "[useOwnerData] Fetch failed after retries:",
               errorMessage,
@@ -288,3 +288,4 @@ export const useOwnerData = (token, options = {}) => {
     reset, // Clear all state: () => void
   };
 };
+

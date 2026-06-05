@@ -1,244 +1,133 @@
-// src/app/providers/SocketProvider.jsx
 import {
   createContext,
   useContext,
   useEffect,
   useRef,
-  useState,
   useCallback,
-  useMemo, // ← ADD THIS LINE
+  useState,
 } from "react";
 import { io } from "socket.io-client";
-
-// ✅ Using Vite aliases for cleaner imports
 import { useAuth } from "@providers/AuthProvider";
 import { getToken } from "@api/token";
+import api from "@api/axios";
 
 const SocketContext = createContext(null);
 
-export function SocketProvider({ children }) {
-  const { isAuthenticated, user } = useAuth();
+export const SocketProvider = ({ children }) => {
+  const { isAuthenticated, user, authChecked } = useAuth();
   const socketRef = useRef(null);
-
-  // ── socket stored in BOTH ref (stable identity) and state (triggers re-render)
-  // The bug in the original: socketRef.current is captured at render time.
-  // Changing a ref doesn't trigger re-renders, so consumers received `null`
-  // for `socket` until some other state change caused a re-render.
-  const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState("idle"); // idle | connecting | connected | disconnected | error
 
-  useEffect(() => {
-    // Disconnect and clean up if user logs out
-    if (!isAuthenticated || !user?.id) {
-      if (socketRef.current) {
-        if (import.meta.env.DEV) {
-          logger.debug("[Socket] Disconnecting due to logout");
-        }
-        socketRef.current.disconnect();
-        socketRef.current = null;
-        setSocket(null);
+  const connectSocket = useCallback(async () => {
+    if (!isAuthenticated || !user || socketRef.current?.connected) return;
+
+    let token = getToken();
+    if (!token) {
+      try {
+        const { data } = await api.post(
+          "/auth/refresh",
+          {},
+          { withCredentials: true },
+        );
+        token = data.token;
+      } catch {
+        return; // Cannot connect without valid session
       }
-      setIsConnected(false);
-      setConnectionStatus("idle");
-      return;
     }
 
-    // Already have a socket for this session — don't create another
-    if (socketRef.current) return;
+    const apiBaseUrl = import.meta.env.VITE_API_URL || "/api";
+    const socketBaseUrl = import.meta.env.VITE_SOCKET_URL
+      || (apiBaseUrl.startsWith("/")
+        ? window.location.origin
+        : apiBaseUrl.replace(/\/api\/?$/, ""));
 
-    const socketUrl =
-      import.meta.env.VITE_SOCKET_URL ||
-      import.meta.env.VITE_API_URL?.replace("/api", "") || // strip /api if needed
-      "http://localhost:5000";
-
-    if (import.meta.env.DEV) {
-      // Socket connecting to server
-    }
-
-    setConnectionStatus("connecting");
-
-    const newSocket = io(socketUrl, {
-      // Allow socket.io to negotiate the best transport (prevents websocket-before-handshake issues)
+    const socket = io(socketBaseUrl, {
+      auth: { token },
+      transports: ["websocket", "polling"],
       reconnection: true,
-      reconnectionAttempts: 8,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-      auth: {
-        // backend expects socket.handshake.auth.token to verify JWT
-        token: getToken(),
-        userId: user.id,
-        role: user.role,
-      },
+      reconnectionAttempts: 5,
+      autoConnect: false,
     });
 
-    socketRef.current = newSocket;
-    setSocket(newSocket); // ← expose to consumers via state
-
-    const onConnect = () => {
+    socket.on("connect", () => {
       setIsConnected(true);
-      setConnectionStatus("connected");
+      // Auto-join role-based rooms on connect/reconnect
+      socket.emit("join", `user:${user.id}`);
+      if (user.role === "owner") socket.emit("join", `owner:${user.id}`);
+      if (user.role === "admin") socket.emit("join", `admin:global`);
+    });
 
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Socket] Connected successfully");
-      }
+    socket.on("disconnect", () => setIsConnected(false));
+    socket.on("error", (err) => {
+      if (import.meta.env.DEV) console.warn("Socket error:", err.message);
+    });
 
-      // Join user-specific notification room
-      newSocket.emit("join", `user:${user.id}`);
-      if (user.role === "owner" || user.role === "admin") {
-        newSocket.emit("join", `owner:${user.id}`);
-        if (import.meta.env.DEV) {
-          // Joined owner room
+    // 🔑 Handle token expiry warning → refresh silently → update socket
+    socket.on("auth_expiry_warning", async () => {
+      try {
+        const { data } = await api.post(
+          "/auth/refresh",
+          {},
+          { withCredentials: true },
+        );
+        if (data?.token) {
+          socket.emit("update_token", data.token);
         }
+      } catch (err) {
+        if (import.meta.env.DEV)
+          console.warn("Socket token refresh failed:", err);
+        socket.disconnect();
       }
-    };
+    });
 
-    const onDisconnect = (reason) => {
-      setIsConnected(false);
-      setConnectionStatus("disconnected");
+    socketRef.current = socket;
+    socket.connect();
+  }, [isAuthenticated, user]);
 
-      if (process.env.NODE_ENV === "development") {
-        console.log(`[Socket] Disconnected: ${reason}`);
-      }
-    };
-
-    const onConnectError = (err) => {
-      setConnectionStatus("error");
-
-      if (process.env.NODE_ENV === "development") {
-        console.warn("[Socket] Connection error:", err?.message || err);
-      }
-    };
-
-    const onReconnectAttempt = (attempt) => {
-      setConnectionStatus("connecting");
-
-      if (process.env.NODE_ENV === "development") {
-        console.log(`[Socket] Reconnection attempt ${attempt}/8`);
-      }
-    };
-
-    const onReconnectFailed = () => {
-      setConnectionStatus("error");
-
-      if (process.env.NODE_ENV === "development") {
-        console.error("[Socket] Failed to reconnect after 8 attempts");
-      }
-    };
-
-    // Register event listeners
-    newSocket.on("connect", onConnect);
-    newSocket.on("disconnect", onDisconnect);
-    newSocket.on("connect_error", onConnectError);
-    newSocket.on("reconnect_attempt", onReconnectAttempt);
-    newSocket.on("reconnect_failed", onReconnectFailed);
-
-    return () => {
-      // Cleanup all listeners and disconnect
-      newSocket.off("connect", onConnect);
-      newSocket.off("disconnect", onDisconnect);
-      newSocket.off("connect_error", onConnectError);
-      newSocket.off("reconnect_attempt", onReconnectAttempt);
-      newSocket.off("reconnect_failed", onReconnectFailed);
-
-      if (newSocket.connected) {
-        newSocket.disconnect();
-      }
-
-      socketRef.current = null;
-      setSocket(null);
-      setIsConnected(false);
-      setConnectionStatus("idle");
-
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Socket] Cleanup complete");
-      }
-    };
-  }, [isAuthenticated, user?.id, user?.role]);
-
-  // ── Safe emit: silently drops if socket isn't connected ──────────────────
-  // Prevents consumers from having to check isConnected before every emit.
-  const emit = useCallback((event, ...args) => {
-    if (socketRef.current?.connected) {
-      socketRef.current.emit(event, ...args);
-      return true;
-    }
-    if (process.env.NODE_ENV === "development") {
-      console.warn(`[Socket] Emit failed: not connected (event: ${event})`);
-    }
-    return false;
-  }, []);
-
-  // ── Helper: Register event listener with automatic cleanup ───────────────
-  // Usage: const unsubscribe = useSocket().on('bookingCreated', handler);
-  const on = useCallback((event, callback) => {
-    if (!socketRef.current) {
-      if (process.env.NODE_ENV === "development") {
-        console.warn(
-          `[Socket] Cannot register listener: socket not initialized (event: ${event})`,
-        );
-      }
-      return () => {};
-    }
-
-    socketRef.current.on(event, callback);
-
-    // Return unsubscribe function for cleanup
-    return () => {
-      socketRef.current?.off(event, callback);
-    };
-  }, []);
-
-  // ── Helper: Register one-time event listener ─────────────────────────────
-  const once = useCallback((event, callback) => {
-    if (!socketRef.current) {
-      if (process.env.NODE_ENV === "development") {
-        console.warn(
-          `[Socket] Cannot register once listener: socket not initialized (event: ${event})`,
-        );
-      }
-      return () => {};
-    }
-
-    socketRef.current.once(event, callback);
-
-    // Return unsubscribe function for cleanup
-    return () => {
-      socketRef.current?.off(event, callback);
-    };
-  }, []);
-
-  // ── Helper: Unregister event listener ────────────────────────────────────
-  const off = useCallback((event, callback) => {
+  const disconnectSocket = useCallback(() => {
     if (socketRef.current) {
-      socketRef.current.off(event, callback);
+      socketRef.current.disconnect();
+      socketRef.current = null;
+      setIsConnected(false);
     }
   }, []);
 
-  // ── Context value (memoised to prevent unnecessary re-renders) ───────────
-  const value = useMemo(
-    () => ({
-      socket,
-      isConnected,
-      connectionStatus, // "idle" | "connecting" | "connected" | "disconnected" | "error"
-      emit,
-      on, // register persistent listener: on(event, callback) → unsubscribe()
-      once, // register one-time listener: once(event, callback) → unsubscribe()
-      off, // unregister listener: off(event, callback)
-    }),
-    [socket, isConnected, connectionStatus, emit, on, once, off],
-  );
+  // Sync connection with auth state
+  useEffect(() => {
+    if (authChecked && isAuthenticated && user) {
+      connectSocket();
+    } else {
+      disconnectSocket();
+    }
+
+    return () => disconnectSocket();
+  }, [authChecked, isAuthenticated, user, connectSocket, disconnectSocket]);
+
+  // Safe event API for components
+  const emit = useCallback((event, data) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit(event, data);
+    }
+  }, []);
+
+  const on = useCallback((event, callback) => {
+    if (socketRef.current) {
+      socketRef.current.on(event, callback);
+      return () => socketRef.current.off(event, callback);
+    }
+  }, []);
+
+  const value = { socket: socketRef.current, isConnected, emit, on };
 
   return (
     <SocketContext.Provider value={value}>{children}</SocketContext.Provider>
   );
-}
+};
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
-  if (!context) {
-    throw new Error("useSocket must be used within a SocketProvider");
-  }
+  if (!context) throw new Error("useSocket must be used within SocketProvider");
   return context;
 };
+

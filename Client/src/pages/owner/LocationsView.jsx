@@ -34,7 +34,7 @@ export default function LocationsView() {
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState("");
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, _setSearchTerm] = useState("");
   const [selectedStations, setSelectedStations] = useState(new Set());
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -157,7 +157,7 @@ export default function LocationsView() {
         setSelectedStations(new Set());
         setError(null);
       } catch (err) {
-        if (process.env.NODE_ENV === "development") {
+        if (import.meta.env.DEV) {
           console.error("[Locations] fetch error:", err);
         }
         const errorMsg =
@@ -328,7 +328,7 @@ export default function LocationsView() {
       setNotification(`✅ "${group.name}" approved!`);
       setTimeout(() => setNotification(""), 4000);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") console.error(err);
+      if (import.meta.env.DEV) console.error(err);
       setPendingGroups(previousPending);
       setApprovedStations(previousApproved);
       setNotification("⚠️ Failed to approve station");
@@ -349,7 +349,7 @@ export default function LocationsView() {
       setNotification(`❌ "${group.name}" permanently deleted`);
       setTimeout(() => setNotification(""), 4000);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") console.error(err);
+      if (import.meta.env.DEV) console.error(err);
       setPendingGroups(previousPending);
       setNotification("⚠️ Failed to reject station");
     } finally {
@@ -385,7 +385,7 @@ export default function LocationsView() {
       });
       await fetchStations(true);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") console.error(err);
+      if (import.meta.env.DEV) console.error(err);
       setApprovedStations(previousApproved);
       setNotification("⚠️ Failed to add station");
     } finally {
@@ -426,7 +426,7 @@ export default function LocationsView() {
       setTimeout(() => setNotification(""), 3000);
       setShowEditModal(false);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") console.error(err);
+      if (import.meta.env.DEV) console.error(err);
       setApprovedStations(previousApproved);
       setNotification("⚠️ Update failed.");
     } finally {
@@ -457,7 +457,7 @@ export default function LocationsView() {
       );
       setTimeout(() => setNotification(""), 3000);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") console.error(err);
+      if (import.meta.env.DEV) console.error(err);
       setApprovedStations(previousApproved);
       setNotification("⚠️ Failed to update station status");
     } finally {
@@ -1506,3 +1506,4 @@ export default function LocationsView() {
     </div>
   );
 }
+

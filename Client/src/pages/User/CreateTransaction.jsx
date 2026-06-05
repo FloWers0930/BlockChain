@@ -1,5 +1,5 @@
 import { useState } from "react";
-import API from "../../config/axiosConfig";
+import API from "../../api/axios";
 
 function CreateTransaction() {
   const [formData, setFormData] = useState({

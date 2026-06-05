@@ -12,7 +12,6 @@ const BookingView = lazy(() => import("./BookingView"));
 const UsersView = lazy(() => import("./UsersView"));
 const SupportView = lazy(() => import("./SupportView"));
 const AuditTrailView = lazy(() => import("@components/modals/AuditTrailView"));
-const SettingsView = lazy(() => import("./SettingsView"));
 
 const ADMIN_VIEWS = {
   dashboard: DashboardView,
@@ -20,7 +19,6 @@ const ADMIN_VIEWS = {
   users: UsersView,
   support: SupportView,
   audit: AuditTrailView,
-  settings: SettingsView,
 };
 
 // ─── Inline SVG Icon Components ─────────────────────────────────────────────
@@ -114,38 +112,14 @@ const IconAudit = (props) => (
   </svg>
 );
 
-const IconSettings = (props) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    className="w-5 h-5"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-    {...props}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-    />
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-    />
-  </svg>
-);
-
 // ─── Menu Configuration ─────────────────────────────────────────────────────
 const ADMIN_MENU = [
   { id: "dashboard", label: "Dashboard", icon: IconDashboard },
-  { id: "booking", label: "Booking", icon: IconTrendingUp }, // FIXED TYPO: Changed "Booking" to "booking"
+  { id: "booking", label: "Booking", icon: IconTrendingUp },
   { id: "users", label: "Users", icon: IconUsers },
   { id: "support", label: "Support", icon: IconSupport },
   { id: "audit", label: "Audit Trail", icon: IconAudit },
-  { id: "settings", label: "Settings", icon: IconSettings },
+  // ✅ REMOVED: settings menu item
 ];
 
 export default function AdminDashboard() {
@@ -183,7 +157,7 @@ export default function AdminDashboard() {
 
   const menuItems = ADMIN_MENU.map((item) => ({
     ...item,
-    active: item.id.toLowerCase() === activeView.toLowerCase(), // Added case-insensitive check
+    active: item.id.toLowerCase() === activeView.toLowerCase(),
     onClick: () => setActiveView(item.id),
   }));
 
@@ -204,3 +178,4 @@ export default function AdminDashboard() {
     </DashboardLayout>
   );
 }
+

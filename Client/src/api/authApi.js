@@ -3,13 +3,9 @@ import api from "./axios.js";
 import {
   setAuthData,
   clearAuthData,
-  getStoredUser,
-  getToken,
-  getRefreshToken,
   isAuthenticated,
   getUserRole,
   getUserName,
-  getLastLogin,
 } from "./token.js";
 
 // ─── Custom Error Class for Auth Errors ─────────────────────────────────────
@@ -152,7 +148,9 @@ export const changePassword = async (currentPassword, newPassword) => {
   try {
     if (import.meta.env.DEV) {
       console.log(
-        `[Auth API] Password change requested for: ${getUserName() || "unknown"}`,
+        `[Auth API] Password change requested for: ${
+          getUserName() || "unknown"
+        }`,
       );
     }
 
@@ -187,3 +185,4 @@ export const hasRole = (allowedRoles) => {
   const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
   return roles.includes(userRole);
 };
+

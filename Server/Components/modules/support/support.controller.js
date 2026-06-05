@@ -6,6 +6,16 @@ const SupportTicket = require("./supportTicket.model.js");
 const emailService = require("../../config/email.js");
 const logger = require("../../config/logger.js");
 
+// ✅ Allowed values for validation
+const VALID_CATEGORIES = [
+  "billing",
+  "technical",
+  "account",
+  "feature",
+  "other",
+];
+const VALID_STATUSES = ["open", "pending", "resolved", "closed"];
+
 const getSupportTickets = async (req, res, next) => {
   try {
     // Only allow admins or support staff to view all tickets
@@ -16,31 +26,51 @@ const getSupportTickets = async (req, res, next) => {
       });
     }
 
-    const tickets = await SupportTicket.find()
-      .populate("customer", "name email")
-      .sort({ createdAt: -1 });
+    // ✅ FIX 1: Add pagination with safe limits
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
 
-    res.json({ success: true, tickets });
+    const [tickets, total] = await Promise.all([
+      SupportTicket.find()
+        .populate("customer", "name email")
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 }),
+      SupportTicket.countDocuments(),
+    ]);
+
+    res.json({
+      success: true,
+      tickets,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     next(error);
   }
 };
 
+const createSupportTicketSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().min(1).max(2000),
+  category: z.enum(VALID_CATEGORIES).optional().default("other"),
+});
+
 const createSupportTicket = async (req, res, next) => {
   try {
-    const { title, description, category = "other" } = req.body;
-
-    if (!title?.trim() || !description?.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Title and description are required",
-      });
-    }
+    // ✅ FIX 2: Validate input with Zod
+    const validated = createSupportTicketSchema.parse(req.body);
+    const { title, description, category } = validated;
 
     const ticket = await SupportTicket.create({
       customer: req.user._id,
-      title: title.trim(),
-      description: description.trim(),
+      title,
+      description,
       category,
       status: "open",
     });
@@ -55,7 +85,7 @@ const createSupportTicket = async (req, res, next) => {
         ticketId: ticket._id,
         error: emailErr.message,
       });
-      // Don't fail the ticket creation if email fails - still create the ticket
+      // Don't fail the ticket creation if email fails
     }
 
     const io = req.app.locals.io;
@@ -74,26 +104,28 @@ const createSupportTicket = async (req, res, next) => {
       emailSent,
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: error.errors,
+      });
+    }
     next(error);
   }
 };
 
 const replyToSupportTicketSchema = z.object({
-  message: z.string().trim().min(1),
-  status: z.string().optional(),
-  sendEmail: z.coerce.boolean().optional(),
+  message: z.string().trim().min(1).max(2000),
+  status: z.enum(VALID_STATUSES).optional(),
+  sendEmail: z.coerce.boolean().optional().default(true),
 });
 
 const replyToSupportTicket = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { message, status, sendEmail = true } = req.body;
-
-    if (!message?.trim()) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Reply message is required" });
-    }
+    const validated = replyToSupportTicketSchema.parse(req.body);
+    const { message, status, sendEmail } = validated;
 
     const ticket = await SupportTicket.findById(id).populate(
       "customer",
@@ -104,6 +136,14 @@ const replyToSupportTicket = async (req, res, next) => {
       return res
         .status(404)
         .json({ success: false, message: "Support ticket not found" });
+    }
+
+    // ✅ FIX 3: Optional — prevent replies to closed tickets (business logic)
+    if (ticket.status === "closed" && !status) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot reply to a closed ticket. Reopen it first.",
+      });
     }
 
     if (!ticket.replies) ticket.replies = [];
@@ -153,6 +193,13 @@ const replyToSupportTicket = async (req, res, next) => {
       emailSent,
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: error.errors,
+      });
+    }
     logger.error("Error replying to ticket", { error: error.message });
     next(error);
   }
@@ -160,12 +207,31 @@ const replyToSupportTicket = async (req, res, next) => {
 
 const getMyTickets = async (req, res, next) => {
   try {
-    const tickets = await SupportTicket.find({ customer: req.user._id })
-      .sort({ createdAt: -1 })
-      .populate("replies.repliedBy", "name username")
-      .lean();
+    // ✅ FIX 4: Add pagination to user's own tickets too
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
 
-    res.json({ success: true, tickets });
+    const [tickets, total] = await Promise.all([
+      SupportTicket.find({ customer: req.user._id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("replies.repliedBy", "name username")
+        .lean(),
+      SupportTicket.countDocuments({ customer: req.user._id }),
+    ]);
+
+    res.json({
+      success: true,
+      tickets,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -176,5 +242,6 @@ module.exports = {
   createSupportTicket,
   replyToSupportTicket,
   getMyTickets,
+  createSupportTicketSchema, // Export for routes
   replyToSupportTicketSchema,
 };

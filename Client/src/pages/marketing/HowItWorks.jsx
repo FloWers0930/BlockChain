@@ -226,7 +226,7 @@ export default function HowItWorks() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {ownerSteps.map((step, idx) => (
+            {ownerSteps.map((step) => (
               <div key={step.num} className="relative group">
                 <div className="bg-white border border-slate-200 rounded-3xl p-8 hover:-translate-y-2 hover:shadow-2xl hover:shadow-slate-200/60 hover:border-amber-200 transition-all duration-300 h-full">
                   {/* Step number badge */}

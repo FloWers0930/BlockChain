@@ -342,22 +342,29 @@ export default function LandingPage() {
             <div className="grid md:grid-cols-2 gap-16 items-center">
               <div>
                 <h2 className="text-5xl font-bold text-gray-900 mb-8">
-                  About Crossroad Tandang Sora
+                  About Statio Nexus
                 </h2>
                 <p className="text-lg text-gray-600 mb-6">
-                  Fortress Land presents Crossroad Tandang Sora — a premier
-                  13,000 SQM mixed‑use development at #610 Tandang Sora Avenue,
-                  Quezon City.
+                  Statio Nexus is an intelligent parking management platform
+                  designed to modernize how parking ecosystems operate across
+                  mixed-use developments, transport hubs, and residential
+                  communities. We serve as the central digital infrastructure
+                  that connects drivers, facility operators, and station owners
+                  through a single unified system.
                 </p>
                 <p className="text-lg text-gray-600 mb-6">
-                  Featuring a central transport terminal, a 120‑room hotel,
-                  educational institutions, and residential communities, it is
-                  one of the most connected developments in Metro Manila.
+                  We deliver real-time spot availability tracking and seamless
+                  mobile booking to eliminate parking friction for end users.
+                  Simultaneously, we provide operators with comprehensive
+                  dashboards featuring revenue analytics, occupancy heatmaps,
+                  and live performance monitoring to optimize daily operations.
                 </p>
                 <p className="text-lg text-gray-600">
-                  Statio Nexus is the intelligent platform that powers its
-                  parking ecosystem — delivering real‑time availability and
-                  seamless mobile booking for every visitor.
+                  Ultimately, Statio Nexus transforms static parking
+                  infrastructure into smart, data-driven assets. By bridging the
+                  gap between user convenience and operational visibility, we
+                  turn parking from a logistical challenge into a streamlined,
+                  revenue-generating component of any development.
                 </p>
               </div>
               <div className="flex justify-end">
@@ -456,7 +463,7 @@ export default function LandingPage() {
                 <div className="text-6xl font-bold text-gray-800 my-4">₱50</div>
                 <p className="text-gray-500">First 3 hours</p>
                 <p className="text-xs text-gray-400 mt-4">
-                  ₱10 per succeeding hour
+                  ₱2500 per succeeding hour
                 </p>
                 <Link
                   to="/download"
@@ -514,3 +521,4 @@ export default function LandingPage() {
     </>
   );
 }
+

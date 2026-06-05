@@ -2,37 +2,24 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "@api/axios";
 import { useSocket } from "@providers/SocketProvider";
-import { useAuth } from "@providers/AuthProvider";
 
-// ─── Role badge colors ─────────────────────────────────────────────────────
+// ─── Role badge colors (consistent with design system) ─────────────────────
 const ROLE_STYLES = {
   admin: {
     bg: "bg-purple-100",
     text: "text-purple-700",
     border: "border-purple-200",
   },
-  manager: {
-    bg: "bg-blue-100",
-    text: "text-blue-700",
-    border: "border-blue-200",
-  },
   staff: {
     bg: "bg-emerald-100",
     text: "text-emerald-700",
     border: "border-emerald-200",
   },
-  viewer: {
-    bg: "bg-slate-100",
-    text: "text-slate-600",
-    border: "border-slate-200",
-  },
 };
 
 const ROLE_LABELS = {
   admin: "Admin",
-  manager: "Manager",
   staff: "Staff",
-  viewer: "Viewer",
 };
 
 // ─── Status badge styles ───────────────────────────────────────────────────
@@ -40,14 +27,71 @@ const STATUS_STYLES = {
   active: {
     bg: "bg-emerald-100",
     text: "text-emerald-700",
-    dot: "bg-emerald-500",
+    dot: "bg-emerald-400",
   },
-  pending: { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-500" },
+  pending: { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-400" },
   inactive: { bg: "bg-slate-100", text: "text-slate-600", dot: "bg-slate-400" },
 };
 
+// ─── Empty State Placeholder ─────────────────────────────────────────────────
+const EmptyState = ({
+  icon = "team",
+  title = "No staff members found",
+  subtitle = "Add your first team member to get started",
+  onAction,
+  actionLabel = "Add Employee",
+}) => (
+  <div className="h-64 flex flex-col items-center justify-center text-slate-300 py-12">
+    <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-6">
+      {icon === "team" ? (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-10 h-10 text-slate-300"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+          />
+        </svg>
+      ) : (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-10 h-10 text-slate-300"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+          />
+        </svg>
+      )}
+    </div>
+    <p className="text-slate-600 font-semibold text-lg mb-1">{title}</p>
+    <p className="text-slate-400 text-sm max-w-[240px] text-center mb-4">
+      {subtitle}
+    </p>
+    {onAction && (
+      <button
+        onClick={onAction}
+        className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl font-semibold transition shadow-lg shadow-indigo-500/25 text-sm"
+      >
+        {actionLabel}
+      </button>
+    )}
+  </div>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────
 export default function StaffView() {
-  const { user } = useAuth();
   const { socket } = useSocket();
 
   const [staffList, setStaffList] = useState([]);
@@ -55,22 +99,24 @@ export default function StaffView() {
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
-  // ── Section loading + error states ───────────────────────────────────────
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  // ── Modal states ─────────────────────────────────────────────────────────
-  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
 
-  // ── Form states ──────────────────────────────────────────────────────────
-  const [inviteForm, setInviteForm] = useState({
+  const [addForm, setAddForm] = useState({
     email: "",
+    fullName: "",
+    phone: "",
     role: "staff",
+    startDate: "",
     stationAccess: [],
+    notes: "",
+    sendWelcomeEmail: true,
   });
   const [editForm, setEditForm] = useState({
     name: "",
@@ -79,13 +125,23 @@ export default function StaffView() {
     status: "active",
   });
 
-  // ── Notification state ───────────────────────────────────────────────────
   const [notification, setNotification] = useState(null);
-
-  // ── Available stations for access assignment ─────────────────────────────
   const [availableStations, setAvailableStations] = useState([]);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
-  // ── Fetch staff list ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (date) =>
+    date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+
   const fetchStaff = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     setError(null);
@@ -99,27 +155,24 @@ export default function StaffView() {
     } catch (err) {
       const msg = err?.response?.data?.message || "Failed to load staff list";
       setError(msg);
-      if (process.env.NODE_ENV === "development") console.error(err);
+      if (import.meta.env.DEV) console.error(err);
     } finally {
       setInitialLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  // ── Initial load ─────────────────────────────────────────────────────────
   useEffect(() => {
     fetchStaff(false);
   }, [fetchStaff]);
 
-  // ── Real-time socket updates ─────────────────────────────────────────────
   useEffect(() => {
     if (!socket) return;
 
     const handlers = {
-      staffAdded: () => fetchStaff(true),
+      staffCreated: () => fetchStaff(true),
       staffUpdated: () => fetchStaff(true),
-      staffRemoved: () => fetchStaff(true),
-      staffInviteAccepted: () => fetchStaff(true),
+      staffDeleted: () => fetchStaff(true),
     };
 
     Object.entries(handlers).forEach(([event, handler]) => {
@@ -133,7 +186,6 @@ export default function StaffView() {
     };
   }, [socket, fetchStaff]);
 
-  // ── Filtered staff list ──────────────────────────────────────────────────
   const filteredStaff = staffList.filter((member) => {
     const matchesSearch =
       !searchQuery ||
@@ -147,19 +199,25 @@ export default function StaffView() {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  // ── Show toast notification ──────────────────────────────────────────────
   const showNotification = (type, text) => {
     setNotification({ type, text });
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // ── Open invite modal ────────────────────────────────────────────────────
-  const openInviteModal = () => {
-    setInviteForm({ email: "", role: "staff", stationAccess: [] });
-    setShowInviteModal(true);
+  const openAddModal = () => {
+    setAddForm({
+      email: "",
+      fullName: "",
+      phone: "",
+      role: "staff",
+      startDate: "",
+      stationAccess: [],
+      notes: "",
+      sendWelcomeEmail: true,
+    });
+    setShowAddModal(true);
   };
 
-  // ── Open edit modal ──────────────────────────────────────────────────────
   const openEditModal = (staff) => {
     setSelectedStaff(staff);
     setEditForm({
@@ -171,28 +229,29 @@ export default function StaffView() {
     setShowEditModal(true);
   };
 
-  // ── Open remove confirmation ─────────────────────────────────────────────
   const openRemoveModal = (staff) => {
     setSelectedStaff(staff);
     setShowRemoveModal(true);
   };
 
-  // ── Handle invite form changes ───────────────────────────────────────────
-  const handleInviteChange = (e) => {
+  const handleAddFormChange = (e) => {
     const { name, value, type, checked } = e.target;
     if (type === "checkbox") {
-      setInviteForm((prev) => ({
-        ...prev,
-        stationAccess: checked
-          ? [...prev.stationAccess, value]
-          : prev.stationAccess.filter((id) => id !== value),
-      }));
+      if (name === "stationAccess") {
+        setAddForm((prev) => ({
+          ...prev,
+          stationAccess: checked
+            ? [...prev.stationAccess, value]
+            : prev.stationAccess.filter((id) => id !== value),
+        }));
+      } else {
+        setAddForm((prev) => ({ ...prev, [name]: checked }));
+      }
     } else {
-      setInviteForm((prev) => ({ ...prev, [name]: value }));
+      setAddForm((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  // ── Handle edit form changes ─────────────────────────────────────────────
   const handleEditChange = (e) => {
     const { name, value, type, checked } = e.target;
     if (type === "checkbox") {
@@ -207,37 +266,44 @@ export default function StaffView() {
     }
   };
 
-  // ── Send staff invite ────────────────────────────────────────────────────
-  const handleSendInvite = async (e) => {
+  const handleAddEmployee = async (e) => {
     e.preventDefault();
-    if (!inviteForm.email) {
-      showNotification("error", "Email address is required");
+    if (!addForm.email || !addForm.fullName) {
+      showNotification("error", "Email and full name are required");
       return;
     }
 
     try {
-      const { data } = await api.post("/owner/staff/invite", inviteForm);
+      const { data } = await api.post("/owner/staff", {
+        email: addForm.email.trim(),
+        name: addForm.fullName.trim(),
+        phone: addForm.phone?.trim() || undefined,
+        role: addForm.role,
+        startDate: addForm.startDate || undefined,
+        stationAccess: addForm.stationAccess,
+        notes: addForm.notes?.trim() || undefined,
+        sendWelcomeEmail: addForm.sendWelcomeEmail,
+      });
       if (data.success) {
-        showNotification("success", `Invite sent to ${inviteForm.email}`);
-        setShowInviteModal(false);
+        showNotification("success", `${addForm.fullName} added successfully`);
+        setShowAddModal(false);
         fetchStaff(true);
       }
     } catch (err) {
       showNotification(
         "error",
-        err?.response?.data?.message || "Failed to send invite",
+        err?.response?.data?.message || "Failed to add employee",
       );
     }
   };
 
-  // ── Update staff member ──────────────────────────────────────────────────
   const handleUpdateStaff = async (e) => {
     e.preventDefault();
-    if (!selectedStaff?.id) return;
+    if (!selectedStaff?._id) return;
 
     try {
       const { data } = await api.put(
-        `/owner/staff/${selectedStaff.id}`,
+        `/owner/staff/${selectedStaff._id}`,
         editForm,
       );
       if (data.success) {
@@ -253,12 +319,11 @@ export default function StaffView() {
     }
   };
 
-  // ── Remove staff member ──────────────────────────────────────────────────
   const handleRemoveStaff = async () => {
-    if (!selectedStaff?.id) return;
+    if (!selectedStaff?._id) return;
 
     try {
-      const { data } = await api.delete(`/owner/staff/${selectedStaff.id}`);
+      const { data } = await api.delete(`/owner/staff/${selectedStaff._id}`);
       if (data.success) {
         showNotification("success", "Staff member removed");
         setShowRemoveModal(false);
@@ -272,19 +337,19 @@ export default function StaffView() {
     }
   };
 
-  // ── Resend invite ────────────────────────────────────────────────────────
   const handleResendInvite = async (staff) => {
     try {
-      const { data } = await api.post(`/owner/staff/${staff.id}/resend-invite`);
+      const { data } = await api.post(
+        `/owner/staff/${staff._id}/resend-invite`,
+      );
       if (data.success) {
         showNotification("success", `Invite resent to ${staff.email}`);
       }
-    } catch (err) {
+    } catch {
       showNotification("error", "Failed to resend invite");
     }
   };
 
-  // ── Loading skeleton ─────────────────────────────────────────────────────
   if (initialLoading) {
     return (
       <div className="min-h-screen bg-slate-50 px-4 py-8 flex items-center justify-center">
@@ -317,15 +382,14 @@ export default function StaffView() {
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 space-y-7">
-      {/* ── Toast Notification ───────────────────────────────────────────── */}
       {notification && (
         <div
           className={`fixed top-6 right-6 px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 z-50 ${
             notification.type === "success"
               ? "bg-emerald-600"
               : notification.type === "error"
-                ? "bg-red-600"
-                : "bg-blue-600"
+              ? "bg-red-600"
+              : "bg-blue-600"
           } text-white`}
         >
           {notification.type === "success" ? (
@@ -335,11 +399,11 @@ export default function StaffView() {
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              strokeWidth={2}
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
@@ -350,11 +414,11 @@ export default function StaffView() {
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              strokeWidth={2}
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
                 d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
@@ -365,11 +429,11 @@ export default function StaffView() {
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              strokeWidth={2}
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
@@ -378,7 +442,6 @@ export default function StaffView() {
         </div>
       )}
 
-      {/* ── Header ───────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -390,14 +453,70 @@ export default function StaffView() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2 bg-white border border-slate-100 shadow-sm rounded-full px-4 py-2">
-            <span
-              className={`w-2 h-2 rounded-full ${refreshing ? "bg-amber-400 animate-pulse" : "bg-emerald-400 animate-ping"}`}
-            />
-            <span className="text-xs text-slate-400 font-medium">
-              {refreshing ? "Syncing…" : "Live"}
-            </span>
+          <div className="flex items-center gap-3 bg-white border border-slate-100 shadow-sm rounded-full px-5 py-2.5">
+            <div className="flex items-center gap-2">
+              {refreshing ? (
+                <>
+                  <svg
+                    className="animate-spin w-4 h-4 text-indigo-400"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8z"
+                    />
+                  </svg>
+                  <span className="text-xs text-slate-400 font-medium">
+                    Syncing…
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs text-slate-400 font-medium">
+                    Live
+                  </span>
+                </>
+              )}
+            </div>
+
+            {!refreshing && (
+              <>
+                <div className="h-4 w-px bg-slate-200" />
+                <div className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-3.5 h-3.5 text-slate-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span className="text-xs font-mono font-semibold text-slate-600">
+                    {formatTime(currentTime)}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
+
           <button
             onClick={() => fetchStaff(true)}
             disabled={refreshing}
@@ -406,23 +525,45 @@ export default function StaffView() {
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className={`w-4 h-4 text-slate-400 transition-transform ${refreshing ? "animate-spin" : "hover:rotate-180"}`}
+              className={`w-4 h-4 text-slate-400 transition-transform duration-500 ${
+                refreshing ? "animate-spin" : "hover:rotate-180"
+              }`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              strokeWidth={2}
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
           </button>
+
+          <button
+            onClick={openAddModal}
+            className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-3xl font-semibold transition shadow-lg shadow-indigo-500/25 flex items-center gap-2 text-sm"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+              />
+            </svg>
+            Add Employee
+          </button>
         </div>
       </div>
 
-      {/* ── Error Banner ─────────────────────────────────────────────────── */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3 text-red-700">
@@ -432,11 +573,11 @@ export default function StaffView() {
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              strokeWidth={2}
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
               />
             </svg>
@@ -451,10 +592,8 @@ export default function StaffView() {
         </div>
       )}
 
-      {/* ── Filters & Actions ────────────────────────────────────────────── */}
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-          {/* Search */}
           <div className="flex-1 relative">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -462,11 +601,11 @@ export default function StaffView() {
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              strokeWidth={2}
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
@@ -479,7 +618,6 @@ export default function StaffView() {
             />
           </div>
 
-          {/* Filters */}
           <div className="flex gap-3">
             <select
               value={filterRole}
@@ -488,9 +626,7 @@ export default function StaffView() {
             >
               <option value="all">All Roles</option>
               <option value="admin">Admin</option>
-              <option value="manager">Manager</option>
               <option value="staff">Staff</option>
-              <option value="viewer">Viewer</option>
             </select>
 
             <select
@@ -504,35 +640,38 @@ export default function StaffView() {
               <option value="inactive">Inactive</option>
             </select>
           </div>
-
-          {/* Invite Button */}
-          <button
-            onClick={openInviteModal}
-            className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl font-semibold transition shadow-lg shadow-indigo-500/25 flex items-center gap-2"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-              />
-            </svg>
-            Invite Staff
-          </button>
         </div>
       </div>
 
-      {/* ── Staff List Table ─────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden relative">
+        {refreshing && !initialLoading && (
+          <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md shadow-sm px-3 py-1 rounded-2xl text-xs font-medium flex items-center gap-1.5 z-10 text-indigo-500">
+            <svg
+              className="animate-spin w-3 h-3"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8z"
+              />
+            </svg>
+            Updating…
+          </div>
+        )}
+
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[900px]">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -558,35 +697,11 @@ export default function StaffView() {
             <tbody className="divide-y divide-slate-100">
               {filteredStaff.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="w-12 h-12 text-slate-300"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                        />
-                      </svg>
-                      <p className="text-slate-500 font-medium">
-                        No staff members found
-                      </p>
-                      <p className="text-slate-400 text-sm">
-                        Invite your first team member to get started
-                      </p>
-                      <button
-                        onClick={openInviteModal}
-                        className="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition"
-                      >
-                        Invite Staff
-                      </button>
-                    </div>
+                  <td colSpan={6} className="px-6">
+                    <EmptyState
+                      onAction={openAddModal}
+                      actionLabel="Add Employee"
+                    />
                   </td>
                 </tr>
               ) : (
@@ -598,7 +713,7 @@ export default function StaffView() {
 
                   return (
                     <tr
-                      key={staff.id}
+                      key={staff._id}
                       className="hover:bg-slate-50/50 transition-colors"
                     >
                       <td className="px-6 py-4">
@@ -663,11 +778,11 @@ export default function StaffView() {
                                 fill="none"
                                 viewBox="0 0 24 24"
                                 stroke="currentColor"
+                                strokeWidth={2}
                               >
                                 <path
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
-                                  strokeWidth={2}
                                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                                 />
                               </svg>
@@ -684,11 +799,11 @@ export default function StaffView() {
                               fill="none"
                               viewBox="0 0 24 24"
                               stroke="currentColor"
+                              strokeWidth={2}
                             >
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                strokeWidth={2}
                                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                               />
                             </svg>
@@ -704,11 +819,11 @@ export default function StaffView() {
                               fill="none"
                               viewBox="0 0 24 24"
                               stroke="currentColor"
+                              strokeWidth={2}
                             >
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                strokeWidth={2}
                                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                               />
                             </svg>
@@ -724,96 +839,189 @@ export default function StaffView() {
         </div>
       </div>
 
-      {/* ── Invite Staff Modal ───────────────────────────────────────────── */}
-      {showInviteModal && (
+      {/* Add Employee Modal */}
+      {showAddModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="px-8 pt-8 pb-6 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="text-2xl font-bold text-slate-900">
-                Invite Team Member
-              </h3>
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900">
+                  Add Employee
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Fill in the details below to add a new team member
+                </p>
+              </div>
               <button
-                onClick={() => setShowInviteModal(false)}
+                onClick={() => setShowAddModal(false)}
                 className="text-slate-400 hover:text-slate-600 text-3xl leading-none"
               >
                 ×
               </button>
             </div>
 
-            <form onSubmit={handleSendInvite} className="p-8 space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={inviteForm.email}
-                  onChange={handleInviteChange}
-                  className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition"
-                  placeholder="staff@example.com"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Role
-                </label>
-                <select
-                  name="role"
-                  value={inviteForm.role}
-                  onChange={handleInviteChange}
-                  className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition bg-white"
-                >
-                  <option value="staff">Staff</option>
-                  <option value="manager">Manager</option>
-                  <option value="admin">Admin</option>
-                  <option value="viewer">Viewer</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-3">
-                  Station Access
-                </label>
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
-                  {availableStations.length === 0 ? (
-                    <p className="text-sm text-slate-400">
-                      No stations available. Create a station first.
-                    </p>
-                  ) : (
-                    availableStations.map((station) => (
-                      <label
-                        key={station.id}
-                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 cursor-pointer transition"
-                      >
-                        <input
-                          type="checkbox"
-                          name="stationAccess"
-                          value={station.id}
-                          checked={inviteForm.stationAccess.includes(
-                            station.id,
-                          )}
-                          onChange={handleInviteChange}
-                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
-                        />
-                        <span className="text-sm text-slate-700">
-                          {station.name}
-                        </span>
-                        <span className="text-xs text-slate-400 ml-auto">
-                          #{station.code}
-                        </span>
-                      </label>
-                    ))
-                  )}
+            <form
+              onSubmit={handleAddEmployee}
+              className="p-8 space-y-6 overflow-y-auto"
+            >
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="fullName"
+                      value={addForm.fullName}
+                      onChange={handleAddFormChange}
+                      className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition"
+                      placeholder="John Doe"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                      Email Address <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={addForm.email}
+                      onChange={handleAddFormChange}
+                      className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition"
+                      placeholder="staff@example.com"
+                      required
+                    />
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={addForm.phone}
+                      onChange={handleAddFormChange}
+                      className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition"
+                      placeholder="+63 9XX XXX XXXX"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                      Role <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="role"
+                      value={addForm.role}
+                      onChange={handleAddFormChange}
+                      className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition bg-white"
+                    >
+                      <option value="staff">Staff</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      name="startDate"
+                      value={addForm.startDate}
+                      onChange={handleAddFormChange}
+                      className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="sendWelcomeEmail"
+                        checked={addForm.sendWelcomeEmail}
+                        onChange={handleAddFormChange}
+                        className="w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm text-slate-700">
+                        Send login credentials via email
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-6">
+                <label className="block text-sm font-medium text-slate-600 mb-3">
+                  Station Access Permissions
+                </label>
+                <div className="bg-slate-50 rounded-2xl p-4">
+                  <p className="text-xs text-slate-500 mb-3">
+                    Select which stations this team member can access. Leave
+                    empty for no station access.
+                  </p>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                    {availableStations.length === 0 ? (
+                      <p className="text-sm text-slate-400">
+                        No stations available. Create a station first.
+                      </p>
+                    ) : (
+                      availableStations.map((station) => (
+                        <label
+                          key={station._id}
+                          className="flex items-center gap-3 p-3 rounded-xl hover:bg-white cursor-pointer transition border border-transparent hover:border-slate-200"
+                        >
+                          <input
+                            type="checkbox"
+                            name="stationAccess"
+                            value={station._id}
+                            checked={addForm.stationAccess.includes(
+                              station._id,
+                            )}
+                            onChange={handleAddFormChange}
+                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                          />
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-slate-700">
+                              {station.name}
+                            </span>
+                            <span className="text-xs text-slate-400 ml-2">
+                              #{station.code}
+                            </span>
+                          </div>
+                          <span className="text-xs text-slate-400">
+                            {station.location}
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-6">
+                <label className="block text-sm font-medium text-slate-600 mb-2">
+                  Additional Notes (Optional)
+                </label>
+                <textarea
+                  name="notes"
+                  value={addForm.notes}
+                  onChange={handleAddFormChange}
+                  rows={3}
+                  className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition resize-none"
+                  placeholder="Add any special instructions or notes for this team member..."
+                />
               </div>
 
               <div className="flex gap-4 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowInviteModal(false)}
+                  onClick={() => setShowAddModal(false)}
                   className="flex-1 py-4 border border-slate-200 rounded-3xl font-medium hover:bg-slate-50 transition"
                 >
                   Cancel
@@ -822,7 +1030,7 @@ export default function StaffView() {
                   type="submit"
                   className="flex-1 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-3xl font-semibold transition shadow-lg shadow-indigo-500/25"
                 >
-                  Send Invite
+                  Add Employee
                 </button>
               </div>
             </form>
@@ -830,10 +1038,10 @@ export default function StaffView() {
         </div>
       )}
 
-      {/* ── Edit Staff Modal ─────────────────────────────────────────────── */}
+      {/* Edit Modal */}
       {showEditModal && selectedStaff && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="px-8 pt-8 pb-6 border-b border-slate-100 flex justify-between items-center">
               <h3 className="text-2xl font-bold text-slate-900">
                 Edit Team Member
@@ -846,7 +1054,10 @@ export default function StaffView() {
               </button>
             </div>
 
-            <form onSubmit={handleUpdateStaff} className="p-8 space-y-6">
+            <form
+              onSubmit={handleUpdateStaff}
+              className="p-8 space-y-6 overflow-y-auto"
+            >
               <div>
                 <label className="block text-sm font-medium text-slate-600 mb-2">
                   Full Name
@@ -872,9 +1083,7 @@ export default function StaffView() {
                   className="w-full px-5 py-4 border border-slate-200 rounded-3xl focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition bg-white"
                 >
                   <option value="staff">Staff</option>
-                  <option value="manager">Manager</option>
                   <option value="admin">Admin</option>
-                  <option value="viewer">Viewer</option>
                 </select>
               </div>
 
@@ -900,14 +1109,14 @@ export default function StaffView() {
                 <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
                   {availableStations.map((station) => (
                     <label
-                      key={station.id}
+                      key={station._id}
                       className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 cursor-pointer transition"
                     >
                       <input
                         type="checkbox"
                         name="stationAccess"
-                        value={station.id}
-                        checked={editForm.stationAccess.includes(station.id)}
+                        value={station._id}
+                        checked={editForm.stationAccess.includes(station._id)}
                         onChange={handleEditChange}
                         className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
                       />
@@ -942,7 +1151,7 @@ export default function StaffView() {
         </div>
       )}
 
-      {/* ── Remove Confirmation Modal ────────────────────────────────────── */}
+      {/* Remove Confirmation Modal */}
       {showRemoveModal && selectedStaff && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl">

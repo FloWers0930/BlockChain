@@ -5,10 +5,6 @@ import { Link } from "react-router-dom";
 export default function Navbar({ onNavigate, activeSection }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // ✅ FIX: Use activeSection instead of window.scrollY
-  // Because your LandingPage uses "overflow-y-scroll" on a div,
-  // the window itself never scrolls, so scroll listeners fail.
-  // activeSection is perfectly accurate because it uses IntersectionObserver!
   const isHero = activeSection === "home";
 
   const navItems = [
@@ -23,8 +19,8 @@ export default function Navbar({ onNavigate, activeSection }) {
     <nav
       className={`fixed top-0 left-0 w-full z-50 transition-colors duration-300 ${
         isHero
-          ? "bg-slate-900 border-b border-white/10" // 100% Solid Dark on Hero
-          : "bg-white border-b border-slate-200 shadow-lg shadow-slate-900/5" // 100% Solid White on other sections
+          ? "bg-slate-900 border-b border-white/10"
+          : "bg-white border-b border-slate-200 shadow-lg shadow-slate-900/5"
       }`}
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -71,8 +67,8 @@ export default function Navbar({ onNavigate, activeSection }) {
                       ? "text-white bg-white/10"
                       : "text-indigo-600 bg-indigo-50"
                     : isHero
-                      ? "text-white/70 hover:text-white hover:bg-white/5"
-                      : "text-slate-600 hover:text-indigo-600 hover:bg-slate-100"
+                    ? "text-white/70 hover:text-white hover:bg-white/5"
+                    : "text-slate-600 hover:text-indigo-600 hover:bg-slate-100"
                 }`}
               >
                 {item.label}
@@ -87,9 +83,12 @@ export default function Navbar({ onNavigate, activeSection }) {
             ))}
           </div>
 
-          {/* RIGHT - Download Button */}
+          {/* RIGHT - ✅ Get the App button now navigates to /download */}
           <div className="hidden md:flex items-center gap-4">
-            <button className="flex items-center gap-2 px-6 py-3 rounded-2xl font-semibold shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed] text-white shadow-indigo-500/30">
+            <Link
+              to="/download"
+              className="flex items-center gap-2 px-6 py-3 rounded-2xl font-semibold shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed] text-white shadow-indigo-500/30"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="w-4 h-4"
@@ -105,7 +104,7 @@ export default function Navbar({ onNavigate, activeSection }) {
                 />
               </svg>
               Get the App
-            </button>
+            </Link>
           </div>
 
           {/* Mobile Hamburger */}
@@ -121,7 +120,11 @@ export default function Navbar({ onNavigate, activeSection }) {
             <div className="w-6 h-6 relative flex items-center justify-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className={`w-6 h-6 absolute transition-all duration-300 ${isOpen ? "opacity-0 rotate-90 scale-50" : "opacity-100 rotate-0 scale-100"}`}
+                className={`w-6 h-6 absolute transition-all duration-300 ${
+                  isOpen
+                    ? "opacity-0 rotate-90 scale-50"
+                    : "opacity-100 rotate-0 scale-100"
+                }`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -135,7 +138,11 @@ export default function Navbar({ onNavigate, activeSection }) {
               </svg>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className={`w-6 h-6 absolute transition-all duration-300 ${isOpen ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-50"}`}
+                className={`w-6 h-6 absolute transition-all duration-300 ${
+                  isOpen
+                    ? "opacity-100 rotate-0 scale-100"
+                    : "opacity-0 -rotate-90 scale-50"
+                }`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -156,7 +163,11 @@ export default function Navbar({ onNavigate, activeSection }) {
       <div
         className={`md:hidden absolute top-full left-0 w-full border-b shadow-xl transition-all duration-300 origin-top transform ${
           isHero ? "bg-slate-900 border-white/10" : "bg-white border-slate-200"
-        } ${isOpen ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0 pointer-events-none"}`}
+        } ${
+          isOpen
+            ? "scale-y-100 opacity-100"
+            : "scale-y-0 opacity-0 pointer-events-none"
+        }`}
       >
         <div className="px-6 py-6 space-y-2">
           {navItems.map((item) => (
@@ -172,15 +183,20 @@ export default function Navbar({ onNavigate, activeSection }) {
                     ? "bg-white/10 text-white"
                     : "bg-indigo-50 text-indigo-600"
                   : isHero
-                    ? "text-white/80 hover:bg-white/5 hover:text-white"
-                    : "text-slate-800 hover:bg-slate-50"
+                  ? "text-white/80 hover:bg-white/5 hover:text-white"
+                  : "text-slate-800 hover:bg-slate-50"
               }`}
             >
               {item.label}
             </button>
           ))}
 
-          <button className="w-full flex items-center justify-center gap-2 px-5 py-4 mt-4 rounded-2xl font-semibold shadow-lg transition-all active:scale-95 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed] text-white">
+          {/* ✅ Mobile Get the App also navigates to /download */}
+          <Link
+            to="/download"
+            onClick={() => setIsOpen(false)}
+            className="w-full flex items-center justify-center gap-2 px-5 py-4 mt-4 rounded-2xl font-semibold shadow-lg transition-all active:scale-95 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed] text-white"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="w-5 h-5"
@@ -196,9 +212,10 @@ export default function Navbar({ onNavigate, activeSection }) {
               />
             </svg>
             Get the App
-          </button>
+          </Link>
         </div>
       </div>
     </nav>
   );
 }
+  

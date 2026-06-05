@@ -121,7 +121,7 @@ export default function RevenueView() {
       setError(null);
       setCurrentPage(1);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") {
+      if (import.meta.env.DEV) {
         console.error("Failed to fetch revenue data:", err);
       }
       const errorMsg =
@@ -778,3 +778,4 @@ export default function RevenueView() {
     </div>
   );
 }
+

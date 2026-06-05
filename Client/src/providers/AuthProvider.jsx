@@ -1,4 +1,3 @@
-// src/app/providers/AuthProvider.jsx
 import {
   createContext,
   useContext,
@@ -14,31 +13,9 @@ import {
   getMe as apiGetMe,
 } from "@api/authApi";
 
-import { isAuthenticated as isTokenValid } from "@api/token";
+import { setAuthData, clearAuthData, getToken } from "@api/token";
 
 const AuthContext = createContext(null);
-
-const PUBLIC_ROUTES = [
-  "/",
-  "/login",
-  "/stations",
-  "/blog",
-  "/help",
-  "/contact",
-  "/about",
-  "/how-it-works",
-  "/privacy",
-  "/terms",
-  "/cookie-policy",
-  "/press",
-  "/sitemap",
-  "/social",
-  "/download",
-  "/unauthorized",
-  "/support",
-  "/customer-support",
-  "/careers",
-];
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -46,43 +23,72 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
 
-  const clearAuth = useCallback(async () => {
-    try {
-      await apiLogout();
-    } catch (err) {
-      if (import.meta.env.DEV) {
-        console.warn("Logout API call failed:", err?.message || err);
-      }
-    } finally {
+  // ── Sync React State with Axios Soft Logout ────────────────────────────────
+  // When axios detects a fatal session failure, it clears memory and dispatches this event.
+  // This ensures React state updates immediately, triggering RequireAuth to redirect.
+  useEffect(() => {
+    const handleAuthChange = () => {
       setUser(null);
       setIsAuthenticated(false);
+    };
+
+    window.addEventListener("auth-changed", handleAuthChange);
+    return () => window.removeEventListener("auth-changed", handleAuthChange);
+  }, []);
+
+  // ✅ FIX: clearAuth now accepts a { fromLogout } flag.
+  // When fromLogout is false (default), we skip calling apiLogout() so we don't
+  // accidentally send a logout request to the backend during initAuth failures.
+  // Calling apiLogout() on a startup failure would clear the HTTP-only refresh
+  // cookie, permanently destroying a perfectly valid session on every page reload.
+  const clearAuth = useCallback(async ({ fromLogout = false } = {}) => {
+    if (fromLogout) {
+      try {
+        await apiLogout();
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn("Logout API call failed:", err?.message || err);
+        }
+      }
     }
+    clearAuthData();
+    setUser(null);
+    setIsAuthenticated(false);
   }, []);
 
   useEffect(() => {
     const initAuth = async () => {
       try {
-        if (!isTokenValid()) {
-          const hadToken = !!localStorage.getItem("token");
-          const currentPath = window.location.pathname;
-          const isPublicRoute =
-            PUBLIC_ROUTES.includes(currentPath) ||
-            currentPath.startsWith("/blog/") ||
-            currentPath.startsWith("/stations/");
+        // 1. Check if we have a token in memory (fresh login or existing tab)
+        if (!getToken()) {
+          // 2. If memory is empty (page refresh), try to restore session via HTTP-only cookie
+          const { default: axios } = await import("axios");
+          const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
-          if (hadToken && !isPublicRoute && import.meta.env.DEV) {
-            console.warn(
-              "Token expired or invalid on protected route — clearing auth state",
-            );
+          const { data } = await axios.post(
+            `${API_BASE_URL}/auth/refresh`,
+            {},
+            { withCredentials: true },
+          );
+
+          if (data?.token) {
+            setAuthData({ token: data.token });
+          } else {
+            throw new Error("Invalid refresh response");
           }
-          return;
         }
 
+        // 3. Fetch user profile with the valid token
+        // ✅ This now works correctly because isAuthenticated() in token.js only
+        // checks for !!_accessToken, not !!_user (which is still null at this point).
         const userData = await apiGetMe();
+
         if (userData) {
+          setAuthData({ user: userData });
           setUser(userData);
           setIsAuthenticated(true);
         } else {
+          // User data invalid — local clear only, do NOT call apiLogout()
           await clearAuth();
         }
       } catch (err) {
@@ -92,6 +98,9 @@ export const AuthProvider = ({ children }) => {
             err?.response?.data?.message || err?.message || err,
           );
         }
+        // ✅ FIX: No { fromLogout: true } here — startup failures must not call
+        // apiLogout() because that would clear the HTTP-only refresh cookie,
+        // destroying a valid session on every hard reload.
         await clearAuth();
       } finally {
         setLoading(false);
@@ -100,25 +109,31 @@ export const AuthProvider = ({ children }) => {
     };
 
     initAuth();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clearAuth]);
 
   const login = useCallback(async (identifier, password) => {
     const data = await apiLogin(identifier, password);
-    if (data?.user) {
+    if (data?.token && data?.user) {
+      setAuthData({ token: data.token, user: data.user });
       setUser(data.user);
       setIsAuthenticated(true);
     }
     return data;
   }, []);
 
+  // ✅ FIX: Only logout() passes { fromLogout: true } — this is the only place
+  // where we intentionally call apiLogout() and clear the refresh cookie.
   const logout = useCallback(async () => {
-    await clearAuth();
+    await clearAuth({ fromLogout: true });
   }, [clearAuth]);
 
   const refreshUser = useCallback(async () => {
     try {
       const userData = await apiGetMe();
-      if (userData) setUser(userData);
+      if (userData) {
+        setAuthData({ user: userData });
+        setUser(userData);
+      }
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn("Failed to refresh user data:", err?.message || err);
@@ -191,7 +206,8 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return context;
 };
+

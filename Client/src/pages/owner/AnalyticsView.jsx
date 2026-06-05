@@ -3,7 +3,6 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@api/axios";
 import { useSocket } from "@providers/SocketProvider";
 import { useAuth } from "@providers/AuthProvider";
-
 import {
   XAxis,
   YAxis,
@@ -15,7 +14,176 @@ import {
   AreaChart,
 } from "recharts";
 
-// ─── Status badge config ──────────────────────────────────────────────────────
+const DollarIcon = ({ size = 20, className = "" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+const CalendarIcon = ({ size = 20, className = "" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+  </svg>
+);
+const TicketIcon = ({ size = 20, className = "" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M2 9a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V9z" />
+    <path d="M8 9h8M8 15h8M12 6v12" />
+  </svg>
+);
+const CarIcon = ({ size = 20, className = "" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18 10l-1.6-4.8A2 2 0 0 0 14.5 4H9.5a2 2 0 0 0-1.9 1.2L6 10l-2.5 1.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2" />
+    <circle cx="7" cy="17" r="2" />
+    <circle cx="17" cy="17" r="2" />
+  </svg>
+);
+const MapPinIcon = ({ size = 20, className = "" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <circle cx="12" cy="10" r="3" />
+  </svg>
+);
+const PieChartIcon = ({ size = 20, className = "" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+    <path d="M22 12A10 10 0 0 0 12 2v10z" />
+  </svg>
+);
+const RefreshIcon = ({ size = 20, className = "" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M21 2v6h-6M3 22v-6h6M13.5 4.5A8.97 8.97 0 0 1 19 12a9 9 0 1 1-9-9" />
+  </svg>
+);
+const ClockIcon = ({ size = 14, className = "" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 6v6l4 2" />
+  </svg>
+);
+const WarningIcon = ({ size = 20, className = "" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+  </svg>
+);
+const EmptyStateIcon = ({ size = 40, className = "" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+  </svg>
+);
+
 const STATUS = {
   active: { label: "Active", bg: "#dcfce7", color: "#16a34a" },
   completed: { label: "Completed", bg: "#eff6ff", color: "#2563eb" },
@@ -23,10 +191,12 @@ const STATUS = {
   pending: { label: "Pending", bg: "#fefce8", color: "#ca8a04" },
   paid: { label: "Paid", bg: "#dcfce7", color: "#16a34a" },
 };
-
 const statusBadge = (raw = "") => {
-  const key = raw.toLowerCase();
-  const s = STATUS[key] ?? { label: raw, bg: "#f1f5f9", color: "#64748b" };
+  const s = STATUS[raw.toLowerCase()] ?? {
+    label: raw,
+    bg: "#f1f5f9",
+    color: "#64748b",
+  };
   return (
     <span
       className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
@@ -37,7 +207,6 @@ const statusBadge = (raw = "") => {
   );
 };
 
-// ─── Custom chart tooltip ─────────────────────────────────────────────────────
 const ChartTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -69,15 +238,14 @@ const ChartTooltip = ({ active, payload, label }) => {
   );
 };
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
 const StatCard = ({ label, value, icon, accent, loading }) => (
-  <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-200">
+  <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-200 group">
     <div className="flex justify-between items-start mb-4">
       <p className="text-slate-400 text-[11px] font-semibold tracking-widest uppercase leading-tight">
         {label}
       </p>
       <div
-        className="w-9 h-9 rounded-2xl flex items-center justify-center"
+        className="w-9 h-9 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
         style={{ backgroundColor: `${accent}15`, color: accent }}
       >
         {icon}
@@ -93,7 +261,6 @@ const StatCard = ({ label, value, icon, accent, loading }) => (
   </div>
 );
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 export default function AnalyticsView() {
   const { isAuthenticated } = useAuth();
   const { socket } = useSocket();
@@ -102,14 +269,9 @@ export default function AnalyticsView() {
   const [topLocations, setTopLocations] = useState([]);
   const [recentBookings, setRecentBookings] = useState([]);
   const [revenueTrend, setRevenueTrend] = useState([]);
-
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-
-  const [pulse, setPulse] = useState(false);
-
-  // ── Real-time clock state ───────────────────────────────────────────────
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -117,46 +279,44 @@ export default function AnalyticsView() {
     return () => clearInterval(timer);
   }, []);
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString("en-US", {
+  const formatTime = (date) =>
+    date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
       hour12: true,
     });
-  };
 
   const fetchAnalytics = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setError(null);
-
     try {
-      const { data } = await api.get("/analytics");
+      const { data } = await api.get("/owner/analytics");
+      // ✅ FIX: response is { success, data: { stats, charts } } — unwrap data.data
+      const res = data.data;
 
       setStats({
-        totalRevenue: data.stats?.totalRevenue ?? 0,
-        monthlyRevenue: data.stats?.monthlyRevenue ?? 0,
-        todayBookings: data.stats?.todayBookings ?? 0,
-        activeBookings: data.stats?.activeBookings ?? 0,
-        totalSpots: data.stats?.totalSpots ?? 0,
-        occupancyRate: data.stats?.occupancyRate ?? 0,
+        totalRevenue: res.stats?.totalRevenue ?? 0,
+        monthlyRevenue: res.stats?.monthlyRevenue ?? 0,
+        todayBookings: res.stats?.todayBookings ?? 0,
+        activeBookings: res.stats?.activeBookings ?? 0,
+        totalSpots: res.stats?.totalSpots ?? 0,
+        occupancyRate: res.stats?.occupancyRate ?? 0,
       });
 
-      setTopLocations(data.charts?.occupancyByLocation ?? []);
-      setRecentBookings(data.recentBookings ?? []);
-      setRevenueTrend(data.charts?.revenueByDay ?? []);
-
-      setPulse(true);
-      setTimeout(() => setPulse(false), 800);
+      // ✅ Use topLocations (has revenue) not occupancyByLocation
+      setTopLocations(res.charts?.topLocations ?? []);
+      setRecentBookings(res.charts?.recentBookings ?? []);
+      setRevenueTrend(res.charts?.revenueByDay ?? []);
       setError(null);
     } catch (err) {
-      if (process.env.NODE_ENV === "development")
+      if (import.meta.env.DEV)
         console.error("[Analytics] fetch error:", err);
-      const errorMsg =
+      setError(
         err?.response?.data?.message ||
-        err?.message ||
-        "Failed to load analytics data. Please check your connection and try again.";
-      setError(errorMsg);
+          err?.message ||
+          "Failed to load analytics data.",
+      );
     } finally {
       setInitialLoading(false);
       setRefreshing(false);
@@ -164,17 +324,18 @@ export default function AnalyticsView() {
   }, []);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !isAuthenticated) return;
+    const handler = () => fetchAnalytics(true);
     const events = [
       "bookingCreated",
       "bookingUpdated",
       "paymentProcessed",
       "spotUpdated",
+      "spotCreated",
     ];
-    events.forEach((e) => socket.on(e, () => fetchAnalytics(true)));
-    return () =>
-      events.forEach((e) => socket.off(e, () => fetchAnalytics(true)));
-  }, [socket, fetchAnalytics]);
+    events.forEach((e) => socket.on(e, handler));
+    return () => events.forEach((e) => socket.off(e, handler));
+  }, [socket, isAuthenticated, fetchAnalytics]);
 
   useEffect(() => {
     if (isAuthenticated) fetchAnalytics(false);
@@ -184,138 +345,67 @@ export default function AnalyticsView() {
   const occupancyRate = stats?.occupancyRate ?? 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 space-y-7">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-8 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Analytics &amp; Reports
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+            Analytics & Reports
           </h1>
-          <p className="text-slate-400 text-sm mt-0.5">
+          <p className="text-slate-500 text-sm mt-1">
             Deep insights into your station performance
           </p>
         </div>
-
-        <div className="flex items-center gap-2.5">
-          {/* Live indicator with real-time clock */}
-          <div className="flex items-center gap-3 bg-white border border-slate-100 shadow-sm rounded-full px-5 py-2.5">
-            <div className="flex items-center gap-2">
-              {refreshing ? (
-                <>
-                  <svg
-                    className="animate-spin w-4 h-4 text-indigo-400"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8z"
-                    />
-                  </svg>
-                  <span className="text-xs text-slate-400 font-medium">
-                    Syncing…
-                  </span>
-                </>
-              ) : initialLoading ? (
-                <span className="text-xs text-slate-400 font-medium">
-                  Loading…
-                </span>
-              ) : (
-                <>
-                  <span
-                    className={`w-2.5 h-2.5 rounded-full bg-emerald-400 ${pulse ? "animate-ping" : "animate-pulse"}`}
-                  />
-                  <span className="text-xs text-slate-400 font-medium">
-                    Live
-                  </span>
-                </>
-              )}
-            </div>
-
-            {!refreshing && !initialLoading && (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm rounded-full px-5 py-2.5">
+            {refreshing ? (
               <>
-                <div className="h-4 w-px bg-slate-200" />
-                <div className="flex items-center gap-1.5">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-3.5 h-3.5 text-slate-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span className="text-xs font-mono font-semibold text-slate-600">
-                    {formatTime(currentTime)}
-                  </span>
-                </div>
+                <RefreshIcon
+                  size={16}
+                  className="animate-spin text-indigo-500"
+                />
+                <span className="text-xs text-slate-600 font-medium">
+                  Syncing…
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs text-slate-600 font-medium">Live</span>
               </>
             )}
+            <div className="h-4 w-px bg-slate-300" />
+            <div className="flex items-center gap-1.5">
+              <ClockIcon size={14} className="text-slate-400" />
+              <span className="text-xs font-mono font-semibold text-slate-700">
+                {formatTime(currentTime)}
+              </span>
+            </div>
           </div>
-
-          {/* Refresh Button */}
           <button
             onClick={() => fetchAnalytics(true)}
             disabled={refreshing}
-            className="w-9 h-9 rounded-full bg-white border border-slate-100 shadow-sm hover:bg-slate-50 flex items-center justify-center transition-colors disabled:opacity-60"
-            title="Refresh"
+            className="w-10 h-10 rounded-full bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 flex items-center justify-center transition-all disabled:opacity-60"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className={`w-4 h-4 text-slate-400 transition-transform duration-500 ${refreshing ? "animate-spin" : "hover:rotate-180"}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
+            <RefreshIcon
+              size={18}
+              className={`text-slate-600 transition-transform duration-500 ${
+                refreshing ? "animate-spin" : "hover:rotate-180"
+              }`}
+            />
           </button>
         </div>
       </div>
 
-      {/* Error banner */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3 text-red-700">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
+            <WarningIcon size={20} />
             <span className="font-medium text-sm">{error}</span>
           </div>
           <button
             onClick={() => fetchAnalytics(true)}
-            className="px-5 py-2 text-sm font-semibold bg-white border border-red-300 hover:bg-red-50 rounded-2xl transition-colors"
+            className="px-5 py-2 text-sm font-semibold bg-white border border-red-300 hover:bg-red-50 rounded-xl transition-colors shadow-sm"
           >
             Retry
           </button>
@@ -323,197 +413,69 @@ export default function AnalyticsView() {
       )}
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard
           label="Total Revenue"
           value={`₱${(stats?.totalRevenue ?? 0).toLocaleString()}`}
-          icon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.25}
-                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          }
+          icon={<DollarIcon />}
           accent="#10b981"
           loading={initialLoading}
         />
         <StatCard
           label="This Month"
           value={`₱${(stats?.monthlyRevenue ?? 0).toLocaleString()}`}
-          icon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.25}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-          }
+          icon={<CalendarIcon />}
           accent="#6366f1"
           loading={initialLoading}
         />
         <StatCard
           label="Today's Bookings"
           value={stats?.todayBookings ?? "—"}
-          icon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.25}
-                d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
-              />
-            </svg>
-          }
+          icon={<TicketIcon />}
           accent="#8b5cf6"
           loading={initialLoading}
         />
         <StatCard
-          label="Active Bookings"
+          label="Active Now"
           value={stats?.activeBookings ?? "—"}
-          icon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.25}
-                d="M8 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.25}
-                d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"
-              />
-            </svg>
-          }
+          icon={<CarIcon />}
           accent="#f59e0b"
           loading={initialLoading}
         />
         <StatCard
-          label="Total Stations"
+          label="Total Spots"
           value={stats?.totalSpots ?? "—"}
-          icon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.25}
-                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.25}
-                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-          }
+          icon={<MapPinIcon />}
           accent="#3b82f6"
           loading={initialLoading}
         />
         <StatCard
           label="Occupancy Rate"
           value={`${occupancyRate}%`}
-          icon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.25}
-                d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.25}
-                d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
-              />
-            </svg>
-          }
+          icon={<PieChartIcon />}
           accent={
             occupancyRate >= 75
               ? "#10b981"
               : occupancyRate >= 40
-                ? "#f59e0b"
-                : "#f87171"
+              ? "#f59e0b"
+              : "#f87171"
           }
           loading={initialLoading}
         />
       </div>
 
-      {/* Revenue Trend Chart */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative overflow-hidden">
+      {/* Revenue Trend */}
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 relative overflow-hidden">
         {refreshing && !initialLoading && (
           <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md shadow-sm px-3 py-1 rounded-2xl text-xs font-medium flex items-center gap-1.5 z-10 text-indigo-500">
-            <svg
-              className="animate-spin w-3 h-3"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v8z"
-              />
-            </svg>
+            <RefreshIcon size={14} className="animate-spin" />
             Updating chart…
           </div>
         )}
-
         <div className="flex justify-between items-start mb-6">
           <div>
-            <h3 className="text-sm font-bold text-slate-800">Revenue Trend</h3>
-            <p className="text-slate-400 text-xs mt-0.5">
+            <h3 className="text-lg font-bold text-slate-900">Revenue Trend</h3>
+            <p className="text-sm text-slate-500 mt-0.5">
               Daily revenue — last 30 days
             </p>
           </div>
@@ -523,63 +485,43 @@ export default function AnalyticsView() {
             </span>
           )}
         </div>
-
         {initialLoading ? (
           <div className="h-80 w-full bg-slate-100 rounded-xl animate-pulse" />
         ) : revenueTrend.length === 0 ? (
-          <div className="h-80 flex flex-col items-center justify-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-10 h-10 text-slate-300"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                />
-              </svg>
+          <div className="h-80 flex flex-col items-center justify-center gap-3">
+            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
+              <EmptyStateIcon size={32} className="text-slate-300" />
             </div>
-            <div className="text-center">
-              <p className="text-slate-600 font-semibold text-lg">
-                No revenue data yet
-              </p>
-              <p className="text-slate-400 text-sm mt-1">
-                Charts will populate once bookings are made
-              </p>
-            </div>
+            <p className="text-sm text-slate-400">No revenue data yet</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={320}>
             <AreaChart
               data={revenueTrend}
-              margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
             >
               <defs>
                 <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6366f1" stopOpacity={0.15} />
+                  <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
                   <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#f1f5f9"
+                vertical={false}
+              />
               <XAxis
                 dataKey="date"
                 tick={{ fill: "#94a3b8", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(v) => {
-                  const d = new Date(v);
-                  return isNaN(d)
-                    ? v
-                    : d.toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      });
-                }}
+                tickFormatter={(v) =>
+                  new Date(v).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })
+                }
               />
               <YAxis
                 tick={{ fill: "#94a3b8", fontSize: 11 }}
@@ -606,11 +548,11 @@ export default function AnalyticsView() {
                 type="monotone"
                 dataKey="revenue"
                 stroke="#6366f1"
-                strokeWidth={2.5}
+                strokeWidth={3}
                 fill="url(#areaGrad)"
-                dot={false}
+                dot={{ fill: "#6366f1", strokeWidth: 2, stroke: "#fff", r: 4 }}
                 activeDot={{
-                  r: 5,
+                  r: 6,
                   fill: "#6366f1",
                   stroke: "#fff",
                   strokeWidth: 2,
@@ -623,40 +565,19 @@ export default function AnalyticsView() {
       </div>
 
       {/* Top Stations + Recent Bookings */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Top Stations */}
-        <div className="lg:col-span-5 bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Top Performing Stations */}
+        <div className="lg:col-span-5 bg-white rounded-3xl p-6 shadow-sm border border-slate-200 relative overflow-hidden">
           {refreshing && !initialLoading && (
             <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md shadow-sm px-3 py-1 rounded-2xl text-xs font-medium flex items-center gap-1.5 z-10 text-indigo-500">
-              <svg
-                className="animate-spin w-3 h-3"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8z"
-                />
-              </svg>
+              <RefreshIcon size={14} className="animate-spin" />
               Updating…
             </div>
           )}
-
-          <h3 className="text-sm font-bold text-slate-800 mb-0.5">
+          <h3 className="text-lg font-bold text-slate-900 mb-0.5">
             Top Performing Stations
           </h3>
-          <p className="text-slate-400 text-xs mb-6">By total revenue</p>
-
+          <p className="text-sm text-slate-500 mb-6">By total revenue</p>
           {initialLoading ? (
             <div className="space-y-5">
               {[...Array(5)].map((_, i) => (
@@ -668,22 +589,9 @@ export default function AnalyticsView() {
               ))}
             </div>
           ) : topLocations.length === 0 ? (
-            <div className="h-48 flex flex-col items-center justify-center gap-4">
+            <div className="h-48 flex flex-col items-center justify-center gap-3">
               <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-8 h-8 text-slate-300"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                  />
-                </svg>
+                <MapPinIcon size={32} className="text-slate-300" />
               </div>
               <p className="text-sm text-slate-400">No station data yet</p>
             </div>
@@ -691,48 +599,41 @@ export default function AnalyticsView() {
             <div className="space-y-5">
               {topLocations.map((loc, i) => {
                 const color = rankAccents[i] ?? "#94a3b8";
-                const pct =
-                  loc.total > 0
-                    ? Math.round((loc.occupied / loc.total) * 100)
-                    : 0;
+                const maxRevenue = topLocations[0]?.revenue || 1;
+                const barPct = Math.round((loc.revenue / maxRevenue) * 100);
                 return (
-                  <div key={loc.location ?? i}>
-                    <div className="flex items-center gap-3 mb-2">
-                      <div
-                        className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0"
-                        style={{ backgroundColor: `${color}18`, color }}
-                      >
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 truncate">
-                          {loc.location}
-                        </p>
-                        {loc.total > 0 && (
-                          <p className="text-[11px] text-slate-400">
-                            {loc.occupied ?? 0}/{loc.total} occupied · {pct}%
+                  <div key={loc.location ?? i} className="group">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold"
+                          style={{ backgroundColor: `${color}20`, color }}
+                        >
+                          {i + 1}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800 truncate">
+                            {loc.location}
                           </p>
-                        )}
+                          <p className="text-xs text-slate-400">
+                            {loc.bookings ?? 0} bookings • {loc.total ?? 0}{" "}
+                            spots
+                          </p>
+                        </div>
                       </div>
-                      <span
-                        className="text-sm font-bold font-mono flex-shrink-0"
-                        style={{ color }}
-                      >
+                      <span className="text-sm font-bold" style={{ color }}>
                         ₱{(loc.revenue ?? 0).toLocaleString()}
                       </span>
                     </div>
-                    {loc.total > 0 && (
-                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-700"
-                          style={{
-                            width: `${pct}%`,
-                            backgroundColor: color,
-                            opacity: 0.7,
-                          }}
-                        />
-                      </div>
-                    )}
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700 group-hover:opacity-80"
+                        style={{
+                          width: `${Math.max(barPct, 4)}%`,
+                          background: `linear-gradient(90deg, ${color}, ${color}dd)`,
+                        }}
+                      />
+                    </div>
                   </div>
                 );
               })}
@@ -741,44 +642,21 @@ export default function AnalyticsView() {
         </div>
 
         {/* Recent Bookings */}
-        <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden relative">
+        <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden relative">
           {refreshing && !initialLoading && (
             <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md shadow-sm px-3 py-1 rounded-2xl text-xs font-medium flex items-center gap-1.5 z-10 text-indigo-500">
-              <svg
-                className="animate-spin w-3 h-3"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8z"
-                />
-              </svg>
+              <RefreshIcon size={14} className="animate-spin" />
               Updating…
             </div>
           )}
-
-          <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
-            <div>
-              <h3 className="text-sm font-bold text-slate-800">
-                Recent Bookings
-              </h3>
-              <p className="text-slate-400 text-xs mt-0.5">
-                Latest customer transactions
-              </p>
-            </div>
+          <div className="px-6 py-5 border-b border-slate-100">
+            <h3 className="text-lg font-bold text-slate-900">
+              Recent Bookings
+            </h3>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Latest customer transactions
+            </p>
           </div>
-
           {initialLoading ? (
             <div className="p-8 space-y-6">
               {[...Array(5)].map((_, i) => (
@@ -791,31 +669,11 @@ export default function AnalyticsView() {
               ))}
             </div>
           ) : recentBookings.length === 0 ? (
-            <div className="h-64 flex flex-col items-center justify-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-10 h-10 text-slate-300"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z"
-                  />
-                </svg>
+            <div className="h-64 flex flex-col items-center justify-center gap-3">
+              <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
+                <TicketIcon size={32} className="text-slate-300" />
               </div>
-              <div className="text-center">
-                <p className="text-slate-600 font-semibold text-lg">
-                  No recent bookings
-                </p>
-                <p className="text-slate-400 text-sm mt-1">
-                  New bookings will appear here automatically
-                </p>
-              </div>
+              <p className="text-sm text-slate-400">No recent bookings</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -870,3 +728,4 @@ export default function AnalyticsView() {
     </div>
   );
 }
+
